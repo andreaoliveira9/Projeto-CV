@@ -1,5 +1,4 @@
-package org.cv;
-
+import org.joml.Vector3d;
 import org.lwjgl.*;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
