@@ -2,7 +2,7 @@ from .shape import Shape
 from lib import Vector3D
 
 
-class Shere(Shape):
+class Sphere(Shape):
     def __init__(
         self,
         operation=None,
