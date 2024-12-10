@@ -30,13 +30,13 @@ class Cube(Shape):
         half_size = Vector3D(self.size / 2, self.size / 2, self.size / 2)
 
         # Vetor de distância absoluta entre o ponto e o centro do cubo
-        delta = abs(eye - self.position) - half_size
+        o = abs(eye - self.position) - half_size
 
-        # Distância máxima para as componentes externas ao cubo
-        max_outside = max(delta.x, 0) + max(delta.y, 0) + max(delta.z, 0)
+        # Distância externa (fora do cubo)
+        ud = Vector3D(max(o.x, 0), max(o.y, 0), max(o.z, 0)).length()
 
-        # Distância interna, se o ponto estiver dentro do cubo
-        max_inside = min(max(delta.x, max(delta.y, delta.z)), 0)
+        # Distância interna (dentro do cubo)
+        n = max(max(min(o.x, 0), min(o.y, 0)), min(o.z, 0))
 
-        # Retorna a soma das distâncias externas e internas
-        return max_outside + max_inside
+        # Retorna a soma das distâncias externa e interna
+        return ud + n
