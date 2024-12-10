@@ -1,4 +1,4 @@
-from lib import Vector3D
+import numpy as np
 
 
 class Shape:
@@ -6,7 +6,7 @@ class Shape:
         self,
         shapeId=None,
         operation=None,
-        color=Vector3D(1, 0, 0),
+        color=np.array([1, 0, 0]),
         blendStrength=0,
         position=None,
     ):
@@ -15,6 +15,3 @@ class Shape:
         self.color = color
         self.blendStrength = blendStrength
         self.position = position
-
-    def distance(self, eye):
-        pass

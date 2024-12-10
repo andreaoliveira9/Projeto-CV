@@ -1,12 +1,12 @@
 from .shape import Shape
-from lib import Vector3D
+import numpy as np
 
 
 class Sphere(Shape):
     def __init__(
         self,
         operation=None,
-        color=Vector3D(1, 0, 0),
+        color=np.array([1, 0, 0]),
         blendStrength=0,
         position=None,
         radius=None,
@@ -19,6 +19,3 @@ class Sphere(Shape):
             position=position,
         )
         self.radius = radius
-
-    def distance(self, eye):
-        return self.position.distance(eye) - self.radius
