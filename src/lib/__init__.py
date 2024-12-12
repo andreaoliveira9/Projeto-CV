@@ -1,1 +1,1 @@
-from .window import Window
+from .window_mandelbulb import Window
