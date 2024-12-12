@@ -9,6 +9,8 @@ uniform vec2 u_resolution;  // Width and height of the shader
 #define MIN_DIST .01
 const vec3 BACKGROUND_COLOR = vec3(1.0, 0.0, 0.0);
 
+out vec4 fragColor;  // Declare an output variable
+
 float sphereSDF(vec3 p) {
     vec4 sphere = vec4(0.0, 1.0, 6.0, 1);
     float dist = length(p - sphere.xyz) - sphere.w;
@@ -27,17 +29,17 @@ float RayMarch(vec3 ro, vec3 rd) {
 }
 
 void main() {
-    vec2 uv = (gl_FragCoord.xy-.5*u_resolution.xy)/u_resolution.y;
-    vec3 ro = vec3(0,1,0); // Ray Origin/ Camera
-    vec3 rd = normalize(vec3(uv.x,uv.y,1));
-    float d = RayMarch(ro,rd); // Distance
-    d/= 10.;
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
+    vec3 ro = vec3(0, 1, 0); // Ray Origin/Camera
+    vec3 rd = normalize(vec3(uv.x, uv.y, 1));
+    float d = RayMarch(ro, rd); // Distance
+    d /= 10.0;
     vec3 color = vec3(d);
-     
+
     // Set the output color
     if (d > 4) {
         color = BACKGROUND_COLOR;
     }
 
-    gl_FragColor = vec4(color, 1.0);
+    fragColor = vec4(color, 1.0);  // Use the output variable
 }

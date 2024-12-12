@@ -1,6 +1,6 @@
 #version 330
 
-attribute vec4 vPosition;
+in vec4 vPosition;
 void main() {
-	gl_Position = vPosition;
+    gl_Position = vPosition;
 }
