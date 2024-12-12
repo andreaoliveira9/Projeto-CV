@@ -6,6 +6,7 @@ uniform vec2 u_resolution;        // Tamanho da janela
 uniform vec3 u_camera_position;   // Posição da câmera
 uniform vec2 u_camera_rotation;   // Rotação da câmera (pitch e yaw)
 uniform float u_time;             // Tempo em segundos
+uniform float u_blend_strength;   // Força do smooth blending (novo uniforme)
 
 #define M_PI 3.14159265358979
 #define MAX_STEPS 100
@@ -43,9 +44,9 @@ float sceneSDF(vec3 p) {
     // Cubo arredondado
     float cube = roundedBoxSDF(p - vec3(2.0, 1.0, 6.0), vec3(1.0), 0.2);
 
-    // Combina os objetos com união suave
-    float blend1 = smoothUnionSDF(sphere1, sphere2, 0.5);  // Mistura das esferas
-    return smoothUnionSDF(blend1, cube, 0.5);              // Mistura com o cubo
+    // Combina os objetos com união suave usando u_blend_strength
+    float blend1 = smoothUnionSDF(sphere1, sphere2, u_blend_strength);  // Mistura das esferas
+    return smoothUnionSDF(blend1, cube, u_blend_strength);              // Mistura com o cubo
 }
 
 // Calcula a normal da superfície no ponto p

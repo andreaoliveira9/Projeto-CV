@@ -2,9 +2,14 @@ import pygame as pg
 import pygame.mouse
 from pygame.locals import *
 import numpy as np
-
+import asyncio
+import websockets
+import threading
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
+
+WEBSOCKET_HOST = "localhost"
+WEBSOCKET_PORT = 8765
 
 
 class Window:
@@ -30,6 +35,10 @@ class Window:
         self.mouse_sensitivity = 0.005
         self.center_mouse = True
 
+        # Blending strength (thread-safe)
+        self.blend_strength = 2.0
+        self.lock = threading.Lock()  # Para sincronização segura
+
     def create_window(self) -> None:
         pg.init()
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
@@ -42,7 +51,7 @@ class Window:
             (self.width, self.height), OPENGL | DOUBLEBUF | RESIZABLE
         )
         self._shader_init()
-        pygame.mouse.set_visible(False)
+        pg.mouse.set_visible(False)
 
         pg.event.set_grab(True)
         pg.mouse.set_visible(False)
@@ -81,6 +90,10 @@ class Window:
         )
         glUniform2f(self.camera_rotation_location, *self.camera_rotation)
         self.time_location = glGetUniformLocation(self.program, "u_time")
+        self.blend_strength_location = glGetUniformLocation(
+            self.program, "u_blend_strength"
+        )
+        glUniform1f(self.blend_strength_location, self.blend_strength)
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
@@ -144,10 +157,7 @@ class Window:
                 # Atualiza no shader
                 glUniform2f(self.camera_rotation_location, *self.camera_rotation)
 
-            # Atualiza no shader
-            glUniform2f(self.camera_rotation_location, *self.camera_rotation)
-
-    def run(self) -> None:
+    def render_loop(self) -> None:
         self.running = True
 
         # Define the vertex data
@@ -188,6 +198,10 @@ class Window:
             current_time = pg.time.get_ticks() / 1000.0
             glUniform1f(self.time_location, current_time)
 
+            # Atualiza a força de blending com thread-safe lock
+            with self.lock:
+                glUniform1f(self.blend_strength_location, self.blend_strength)
+
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -199,3 +213,31 @@ class Window:
             # Atualiza a tela
             pg.display.flip()
             self.clock.tick(self.max_fps)
+
+    def run(self):
+        threading.Thread(target=self.start_websocket_server, daemon=True).start()
+        self.render_loop()
+
+    def start_websocket_server(self):
+        asyncio.run(self.run_server())
+
+    async def websocket_handler(self, websocket):
+        async for message in websocket:
+            print(f"Received message: {message}")
+            try:
+                command, value = message.split(":")
+                print(f"Received command: {command}, value: {value}")
+                if command == "change_blend_strength":
+                    new_blend_strength = float(value)
+
+                    with self.lock:
+                        self.blend_strength = new_blend_strength
+            except ValueError:
+                print(f"Invalid blend strength received: {message}")
+
+    async def run_server(self):
+        server = await websockets.serve(
+            self.websocket_handler, WEBSOCKET_HOST, WEBSOCKET_PORT
+        )
+        print(f"WebSocket server started at ws://{WEBSOCKET_HOST}:{WEBSOCKET_PORT}")
+        await server.wait_closed()
