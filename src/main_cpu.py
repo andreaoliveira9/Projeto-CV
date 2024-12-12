@@ -205,7 +205,7 @@ class Main:
         self.keys = set()
 
         # Controle de desempenho
-        self.dynamic_resolution = Falseb
+        self.dynamic_resolution = False
 
         # Objetos da cena
         self.objects = [
