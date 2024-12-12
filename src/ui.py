@@ -27,8 +27,8 @@ def create_ui():
         add_separator()
         add_slider_float(
             label="Blend Strength",
-            min_value=0.1,
-            max_value=10.0,
+            min_value=0,
+            max_value=3.0,
             default_value=2.0,
             callback=update_blend_strength,
             width=300,

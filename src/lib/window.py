@@ -223,10 +223,8 @@ class Window:
 
     async def websocket_handler(self, websocket):
         async for message in websocket:
-            print(f"Received message: {message}")
             try:
                 command, value = message.split(":")
-                print(f"Received command: {command}, value: {value}")
                 if command == "change_blend_strength":
                     new_blend_strength = float(value)
 
