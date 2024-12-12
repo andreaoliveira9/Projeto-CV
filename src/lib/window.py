@@ -24,6 +24,12 @@ class Window:
         # Shader stuff
         self.resolution_location = None
 
+        # Camera stuff
+        self.camera_position = [0.0, 1.0, 0.0]  # Posição inicial da câmera
+        self.camera_rotation = [0.0, 0.0]  # [pitch, yaw]
+        self.mouse_sensitivity = 0.005
+        self.center_mouse = True
+
     def create_window(self) -> None:
         pg.init()
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
@@ -37,6 +43,10 @@ class Window:
         )
         self._shader_init()
         pygame.mouse.set_visible(False)
+
+        pg.event.set_grab(True)
+        pg.mouse.set_visible(False)
+        pg.mouse.get_rel()  # Reseta o deslocamento inicial
 
     def _shader_init(self):
         # Locations
@@ -62,17 +72,51 @@ class Window:
         # Variable locations and first-time setting
         self.resolution_location = glGetUniformLocation(self.program, "u_resolution")
         glUniform2f(self.resolution_location, self.width, self.height)
+        self.camera_position_location = glGetUniformLocation(
+            self.program, "u_camera_position"
+        )
+        glUniform3f(self.camera_position_location, *self.camera_position)
+        self.camera_rotation_location = glGetUniformLocation(
+            self.program, "u_camera_rotation"
+        )
+        glUniform2f(self.camera_rotation_location, *self.camera_rotation)
+        self.time_location = glGetUniformLocation(self.program, "u_time")
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
             return file.read()
 
     def _process_keys(self) -> None:
-        """process keys that are being pressed and perform some actions"""
+        """Processa as teclas pressionadas para mover a câmera."""
         keys = pg.key.get_pressed()
+        speed = 0.1  # Velocidade de movimento
+
+        # Calcula o vetor de direção com base nos ângulos de rotação
+        yaw, pitch = self.camera_rotation[1], self.camera_rotation[0]
+        forward = np.array(
+            [np.cos(pitch) * np.sin(yaw), -np.sin(pitch), np.cos(pitch) * np.cos(yaw)]
+        )
+        right = np.array([np.cos(yaw), 0, -np.sin(yaw)])
+        up = np.array([0, 1, 0])
+
+        # Movimentos
+        if keys[pg.K_w]:  # Move para frente
+            self.camera_position += forward * speed
+        if keys[pg.K_s]:  # Move para trás
+            self.camera_position -= forward * speed
+        if keys[pg.K_a]:  # Move para a esquerda
+            self.camera_position -= right * speed
+        if keys[pg.K_d]:  # Move para a direita
+            self.camera_position += right * speed
+        if keys[pg.K_q]:  # Move para baixo
+            self.camera_position -= up * speed
+        if keys[pg.K_e]:  # Move para cima
+            self.camera_position += up * speed
+
+        # Atualiza a posição da câmera no shader
+        glUniform3f(self.camera_position_location, *self.camera_position)
 
     def _process_events(self) -> None:
-        """process events that are being triggered"""
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 self.running = False
@@ -83,6 +127,25 @@ class Window:
                     (self.width, self.height), OPENGL | DOUBLEBUF | RESIZABLE
                 )
                 glUniform2f(self.resolution_location, self.width, self.height)
+            if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
+                self.center_mouse = not self.center_mouse
+                pg.event.set_grab(self.center_mouse)
+                pg.mouse.set_visible(not self.center_mouse)
+            if self.center_mouse:
+                mouse_dx, mouse_dy = pg.mouse.get_rel()
+                self.camera_rotation[1] += mouse_dx * self.mouse_sensitivity
+                self.camera_rotation[0] += mouse_dy * self.mouse_sensitivity
+
+                # Limita o pitch para evitar inversão
+                self.camera_rotation[0] = np.clip(
+                    self.camera_rotation[0], -np.pi / 2, np.pi / 2
+                )
+
+                # Atualiza no shader
+                glUniform2f(self.camera_rotation_location, *self.camera_rotation)
+
+            # Atualiza no shader
+            glUniform2f(self.camera_rotation_location, *self.camera_rotation)
 
     def run(self) -> None:
         self.running = True
@@ -121,7 +184,11 @@ class Window:
             self._process_events()
             self._process_keys()
 
-            # OpenGl stuff
+            # Calcula o tempo em segundos
+            current_time = pg.time.get_ticks() / 1000.0
+            glUniform1f(self.time_location, current_time)
+
+            # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
             # Bind the VAO and draw
@@ -129,6 +196,6 @@ class Window:
             glDrawElements(GL_TRIANGLES, len(indices), GL_UNSIGNED_INT, None)
             glBindVertexArray(0)
 
-            # Draw stuff here
+            # Atualiza a tela
             pg.display.flip()
             self.clock.tick(self.max_fps)
