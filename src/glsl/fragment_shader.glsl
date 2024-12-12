@@ -14,29 +14,47 @@ uniform float u_time;             // Tempo em segundos
 
 out vec4 fragColor;  // Cor final do fragmento
 
-// Constantes para iluminação
-const vec3 sphere_color = vec3(1.0, 0.0, 0.0);    // Cor da esfera (vermelho)
-const vec3 background_color = vec3(0.5);          // Fundo preto
+// Constantes
+const vec3 background_color = vec3(0.5);  // Fundo preto
 
-// Função para calcular a posição dinâmica da esfera
-vec3 movingSpherePosition() {
-    float x = sin(u_time) * 2.0;  // Oscila entre -2 e 2 no eixo X
-    return vec3(x, 1.0, 6.0);     // Posição dinâmica da esfera
+// Função SDF para uma esfera
+float sphereSDF(vec3 p, vec3 center, float radius) {
+    return length(p - center) - radius;
 }
 
-float sphereSDF(vec3 p) {
-    vec3 sphere_pos = movingSpherePosition();  // Posição da esfera
-    float dist = length(p - sphere_pos) - 1.0; // Raio da esfera é 1.0
-    return dist;
+// Função SDF para um cubo arredondado
+float roundedBoxSDF(vec3 p, vec3 b, float r) {
+    vec3 q = abs(p) - b;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+}
+
+// Combina SDFs usando união suave
+float smoothUnionSDF(float d1, float d2, float k) {
+    float h = clamp(0.5 + 0.5 * (d2 - d1) / k, 0.0, 1.0);
+    return mix(d2, d1, h) - k * h * (1.0 - h);
+}
+
+// Cena com múltiplos objetos
+float sceneSDF(vec3 p) {
+    // Esferas
+    float sphere1 = sphereSDF(p, vec3(sin(u_time) * 2.0, 1.0, 6.0), 1.0);  // Esfera móvel
+    float sphere2 = sphereSDF(p, vec3(-2.0, 1.0, 4.0), 1.0);              // Esfera fixa
+
+    // Cubo arredondado
+    float cube = roundedBoxSDF(p - vec3(2.0, 1.0, 6.0), vec3(1.0), 0.2);
+
+    // Combina os objetos com união suave
+    float blend1 = smoothUnionSDF(sphere1, sphere2, 0.5);  // Mistura das esferas
+    return smoothUnionSDF(blend1, cube, 0.5);              // Mistura com o cubo
 }
 
 // Calcula a normal da superfície no ponto p
 vec3 calculateNormal(vec3 p) {
     const vec2 e = vec2(0.001, 0.0);
     return normalize(vec3(
-        sphereSDF(p + e.xyy) - sphereSDF(p - e.xyy),
-        sphereSDF(p + e.yxy) - sphereSDF(p - e.yxy),
-        sphereSDF(p + e.yyx) - sphereSDF(p - e.yyx)
+        sceneSDF(p + e.xyy) - sceneSDF(p - e.xyy),
+        sceneSDF(p + e.yxy) - sceneSDF(p - e.yxy),
+        sceneSDF(p + e.yyx) - sceneSDF(p - e.yyx)
     ));
 }
 
@@ -44,7 +62,7 @@ float RayMarch(vec3 ro, vec3 rd) {
     float d0 = 0.0;
     for (int i = 0; i < MAX_STEPS; i++) {
         vec3 p = ro + rd * d0;
-        float d1 = sphereSDF(p);
+        float d1 = sceneSDF(p);
         d0 += d1;
         if (d1 < MIN_DIST || d0 > MAX_DIST) break;
     }
@@ -73,9 +91,6 @@ void main() {
     mat3 rot = rotationMatrix(u_camera_rotation.x, u_camera_rotation.y);
     vec3 rd = normalize(rot * vec3(uv, 1.0));
 
-    // Posição da luz baseada na câmera
-    vec3 light_position = ro + rot * vec3(2.0, 0.0, 0.0);  // Luz deslocada para o lado
-
     // Ray marching
     float d = RayMarch(ro, rd);
     vec3 color = background_color;
@@ -83,11 +98,12 @@ void main() {
     if (d < MAX_DIST) {
         vec3 p = ro + rd * d;  // Ponto de interseção
         vec3 normal = calculateNormal(p);  // Normal da superfície
-        vec3 light_dir = normalize(light_position - p);  // Direção da luz
-        float diff = max(dot(normal, light_dir), 0.0);  // Iluminação difusa
+        vec3 light_position = ro + rot * vec3(2.0, 4.0, 2.0);  // Luz acima da câmera
+        vec3 light_dir = normalize(light_position - p);
+        float diff = max(dot(normal, light_dir), 0.0);
 
-        // Combina a iluminação com a cor da esfera
-        color = sphere_color * diff;
+        // Cor básica com iluminação
+        color = vec3(diff);
     }
 
     fragColor = vec4(color, 1.0);
