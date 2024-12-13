@@ -35,16 +35,22 @@ class Window:
         self.mouse_sensitivity = 0.005
         self.center_mouse = True
 
+
         # Blending strength (thread-safe)
         self.blend_strength = 2.0
         self.lock = threading.Lock()  # Para sincronização segura
         self.power_location = None
         self.darkness_location = None
+
         self.black_and_white_location = None
         self.colour_a_mix_location = None
         self.colour_b_mix_location = None
         self.plusIteration_location = None
         self.plusIteration = 0
+
+        self.fractalGrowSpeed = 0.2
+        self.fractalPower = 10
+        self.fractalGrow = 1
 
     def create_window(self) -> None:
         pg.init()
@@ -96,7 +102,7 @@ class Window:
             self.program, "u_camera_rotation"
         )
         glUniform2f(self.camera_rotation_location, *self.camera_rotation)
-        self.time_location = glGetUniformLocation(self.program, "u_time")
+
         self.blend_strength_location = glGetUniformLocation(
             self.program, "u_blend_strength"
         )
@@ -108,7 +114,7 @@ class Window:
         glUniform1f(self.blend_strength_location, self.blend_strength)
 
         self.power_location = glGetUniformLocation(self.program, "power")
-        glUniform1f(self.power_location, 10)
+        glUniform1f(self.power_location, self.fractalPower)
 
         self.darkness_location = glGetUniformLocation(self.program, "darkness")
         glUniform1f(self.darkness_location, 70)
@@ -222,14 +228,26 @@ class Window:
         # Unbind the VAO to avoid unintended modifications
         glBindVertexArray(0)
 
+        previous_time = pg.time.get_ticks() / 1000.0
+
         while self.running:
             self._process_events()
             self._process_keys()
 
             # Calcula o tempo em segundos
+            # Calculate the current time and delta time
             current_time = pg.time.get_ticks() / 1000.0
-            glUniform1f(self.time_location, current_time)
+            delta_time = current_time - previous_time
+            previous_time = current_time
+            self.fractalPower += self.fractalGrowSpeed * delta_time * self.fractalGrow
+            self.fractalPower = np.max([self.fractalPower, 1.01])
+            glUniform1f(self.power_location, self.fractalPower)
+            if self.fractalPower > 20:
+                self.fractalGrow = -1
+            elif self.fractalPower < 10:
+                self.fractalGrow = 1
 
+            print(self.fractalPower)
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
