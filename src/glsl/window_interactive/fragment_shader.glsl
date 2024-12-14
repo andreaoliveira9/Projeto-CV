@@ -60,9 +60,17 @@ vec2 sceneSDF(vec3 p) {
             continue;
         }
 
-        if (d < dist) {
-            dist = smoothUnionSDF(dist, d, u_blend_strength);
+        if (i == 0) {
+            dist = d;  // Inicializa a distância
             hitID = prim.id;
+        } else {
+            float prevDist = dist;
+            dist = smoothUnionSDF(dist, d, u_blend_strength);
+            
+            // Atualiza o ID apenas se a primitiva atual estiver mais próxima
+            if (d < prevDist) {
+                hitID = prim.id;
+            }
         }
     }
 

@@ -3,7 +3,8 @@ def main():
     print("2 - Mandelbulb window")
     print("3 - Interactive window")
     print("0 - Exit")
-    option = input("Choose an option: ")
+    # option = input("Choose an option: ")
+    option = "3"
 
     if option == "1":
         from lib import WindowEffects as Window

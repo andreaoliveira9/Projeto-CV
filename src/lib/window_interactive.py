@@ -186,6 +186,11 @@ class WindowInteractive:
                 # Atualiza no shader
                 glUniform2f(self.camera_rotation_location, *self.camera_rotation)
 
+    def update_blend_strength(self):
+        """Atualiza o valor de força de mistura no shader."""
+        with self.lock:
+            glUniform1f(self.blend_strength_location, self.blend_strength)
+
     def add_primitive(self, primitive: Primitive):
         """Adiciona uma primitiva à lista de primitivas."""
         if len(self.primitives) < 32:  # Limite de primitivas no shader
@@ -254,8 +259,11 @@ class WindowInteractive:
             self._process_events()
             self._process_keys()
 
+            with self.lock:
+                glUniform1f(self.blend_strength_location, self.blend_strength)
             # Renderiza a cena
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            self.update_blend_strength()
             self._send_primitives_to_shader()
 
             # Desenho da cena
@@ -295,7 +303,8 @@ class WindowInteractive:
                     prim_type, x, y, z, radius = map(float, value.split(","))
                     new_primitive = Primitive(int(prim_type), [x, y, z], radius)
 
-                    self.add_primitive(new_primitive)
+                    with self.lock:
+                        self.add_primitive(new_primitive)
             except ValueError:
                 print(f"Invalid command received: {message}")
 
