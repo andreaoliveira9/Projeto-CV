@@ -6,7 +6,7 @@ from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 
 
-class WindowMandelbulb:
+class WindowMengerSponge:
 
     def __init__(
         self, width: int = 1280, height: int = 800, fps: int = 60, renderer: int = 0
@@ -67,7 +67,7 @@ class WindowMandelbulb:
         # Locations
         vertex_shader_source = self._read_shader("glsl/vertex_shader.glsl")
         fragment_shader_source = self._read_shader(
-            "glsl/window_mandelbulb/fragment_shader.glsl"
+            "glsl/window_mengersponge/fragment_shader.glsl"
         )
 
         # Compile shaders
