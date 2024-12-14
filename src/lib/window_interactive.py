@@ -186,17 +186,10 @@ class WindowInteractive:
                 # Atualiza no shader
                 glUniform2f(self.camera_rotation_location, *self.camera_rotation)
 
-    def update_blend_strength(self):
+    def _update_blend_strength(self):
         """Atualiza o valor de força de mistura no shader."""
         with self.lock:
             glUniform1f(self.blend_strength_location, self.blend_strength)
-
-    def add_primitive(self, primitive: Primitive):
-        """Adiciona uma primitiva à lista de primitivas."""
-        if len(self.primitives) < 32:  # Limite de primitivas no shader
-            self.primitives.append(primitive)
-        else:
-            print("Número máximo de primitivas atingido!")
 
     def _send_primitives_to_shader(self):
         """Envia todas as primitivas para o shader."""
@@ -215,11 +208,6 @@ class WindowInteractive:
             glUniform1f(loc_radius, prim.radius)
 
         glUniform1i(self.primitive_count_location, len(self.primitives))
-
-    def _draw_text(self, text, x, y):
-        font = pg.font.Font(None, 36)
-        surface = font.render(text, True, (255, 255, 255))
-        self.screen.blit(surface, (x, y))
 
     def render_loop(self) -> None:
         self.running = True
@@ -263,7 +251,7 @@ class WindowInteractive:
                 glUniform1f(self.blend_strength_location, self.blend_strength)
             # Renderiza a cena
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            self.update_blend_strength()
+            self._update_blend_strength()
             self._send_primitives_to_shader()
 
             # Desenho da cena
@@ -275,9 +263,6 @@ class WindowInteractive:
             center_x, center_y = self.width // 2, self.height // 2
             pixel_data = glReadPixels(center_x, center_y, 1, 1, GL_BLUE, GL_FLOAT)
             hit_id = int(pixel_data[0] * 255)
-
-            # Exibe o ID na tela
-            self._draw_text(f"Hit ID: {hit_id}", 10, 10)
 
             # Atualiza a tela
             pg.display.flip()
@@ -307,6 +292,13 @@ class WindowInteractive:
                         self.add_primitive(new_primitive)
             except ValueError:
                 print(f"Invalid command received: {message}")
+
+    def add_primitive(self, primitive: Primitive):
+        """Adiciona uma primitiva à lista de primitivas."""
+        if len(self.primitives) < 32:  # Limite de primitivas no shader
+            self.primitives.append(primitive)
+        else:
+            print("Número máximo de primitivas atingido!")
 
     async def run_server(self):
         server = await websockets.serve(
