@@ -10,15 +10,14 @@ uniform float u_blend_strength;
 
 #define MAX_PRIMITIVES 32
 
-// Estrutura para representar uma primitiva
 struct Primitive {
+    int id;             // ID único
     int type;           // 0 = esfera, 1 = cubo arredondado
     vec3 position;      // Posição
     vec3 scale;         // Escala ou tamanho
     float radius;       // Raio (para esferas ou borda arredondada de cubos)
 };
 
-// Uniform array para as primitivas
 uniform Primitive u_primitives[MAX_PRIMITIVES];
 uniform int u_primitive_count;
 
@@ -31,62 +30,67 @@ out vec4 fragColor;
 
 const vec3 background_color = vec3(0.5);
 
-// Função SDF para esferas
 float sphereSDF(vec3 p, vec3 center, float radius) {
     return length(p - center) - radius;
 }
 
-// Função SDF para cubos arredondados
 float roundedBoxSDF(vec3 p, vec3 b, float r) {
     vec3 q = abs(p) - b;
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
 
-// Combina SDFs usando união suave
 float smoothUnionSDF(float d1, float d2, float k) {
     float h = clamp(0.5 + 0.5 * (d2 - d1) / k, 0.0, 1.0);
     return mix(d2, d1, h) - k * h * (1.0 - h);
 }
 
-// Calcula a SDF para a cena com base no array de primitivas
-float sceneSDF(vec3 p) {
+vec2 sceneSDF(vec3 p) {
     float dist = MAX_DIST;
+    int hitID = -1;
 
     for (int i = 0; i < u_primitive_count; i++) {
         Primitive prim = u_primitives[i];
+        float d;
 
         if (prim.type == 0) {
-            // Esfera
-            float d = sphereSDF(p, prim.position, prim.radius);
-            dist = smoothUnionSDF(dist, d, u_blend_strength);
+            d = sphereSDF(p, prim.position, prim.radius); 
         } else if (prim.type == 1) {
-            // Cubo arredondado
-            float d = roundedBoxSDF(p - prim.position, prim.scale, prim.radius);
+            d = roundedBoxSDF(p - prim.position, vec3(1.0), prim.radius);
+        } else {
+            continue;
+        }
+
+        if (d < dist) {
             dist = smoothUnionSDF(dist, d, u_blend_strength);
+            hitID = prim.id;
         }
     }
 
-    return dist;
+    return vec2(dist, float(hitID));
 }
 
 vec3 calculateNormal(vec3 p) {
     const vec2 e = vec2(0.001, 0.0);
     return normalize(vec3(
-        sceneSDF(p + e.xyy) - sceneSDF(p - e.xyy),
-        sceneSDF(p + e.yxy) - sceneSDF(p - e.yxy),
-        sceneSDF(p + e.yyx) - sceneSDF(p - e.yyx)
+        sceneSDF(p + e.xyy).x - sceneSDF(p - e.xyy).x,
+        sceneSDF(p + e.yxy).x - sceneSDF(p - e.yxy).x,
+        sceneSDF(p + e.yyx).x - sceneSDF(p - e.yyx).x
     ));
 }
 
-float RayMarch(vec3 ro, vec3 rd) {
+vec2 RayMarch(vec3 ro, vec3 rd) {
     float d0 = 0.0;
+    int hitID = -1;
+
     for (int i = 0; i < MAX_STEPS; i++) {
         vec3 p = ro + rd * d0;
-        float d1 = sceneSDF(p);
-        d0 += d1;
-        if (d1 < MIN_DIST || d0 > MAX_DIST) break;
+        vec2 scene = sceneSDF(p);
+        d0 += scene.x;
+        hitID = int(scene.y);
+        if (scene.x < MIN_DIST || d0 > MAX_DIST) break;
     }
-    return d0;
+
+    return vec2(d0, float(hitID));
 }
 
 mat3 rotationMatrix(float pitch, float yaw) {
@@ -109,7 +113,9 @@ void main() {
     mat3 rot = rotationMatrix(u_camera_rotation.x, u_camera_rotation.y);
     vec3 rd = normalize(rot * vec3(uv, 1.0));
 
-    float d = RayMarch(ro, rd);
+    vec2 rayResult = RayMarch(ro, rd);
+    float d = rayResult.x;
+    int hitID = int(rayResult.y);
     vec3 color = background_color;
 
     if (d < MAX_DIST) {
@@ -122,5 +128,5 @@ void main() {
         color = vec3(diff);
     }
 
-    fragColor = vec4(color, 1.0);
+    fragColor = vec4(color, float(hitID) / 255.0);  // Corrigido: combina cor e ID no alfa
 }

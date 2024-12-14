@@ -12,21 +12,24 @@ WEBSOCKET_PORT = 8765
 
 
 class Primitive:
-    def __init__(self, prim_type: int, position: list, scale: list, radius: float):
+    _id_counter = 0  # Contador global para gerar IDs únicos
+
+    def __init__(self, prim_type: int, position: list, radius: float):
         """
         prim_type: Tipo da primitiva (0 = esfera, 1 = cubo arredondado)
         position: Posição da primitiva (x, y, z)
         scale: Escala ou dimensões (para cubos arredondados)
         radius: Raio (para esferas ou bordas arredondadas de cubos)
         """
+        self.id = Primitive._id_counter  # Atribui o próximo ID único
+        Primitive._id_counter += 1  # Incrementa o contador global
         self.prim_type = prim_type
         self.position = position
-        self.scale = scale
         self.radius = radius
 
     def to_array(self):
         """Converte a primitiva para um array plano (compatível com uniformes OpenGL)."""
-        return [self.prim_type, *self.position, *self.scale, self.radius]
+        return [self.id, self.prim_type, *self.position, *self.scale, self.radius]
 
 
 class WindowInteractive:
@@ -193,19 +196,25 @@ class WindowInteractive:
     def _send_primitives_to_shader(self):
         """Envia todas as primitivas para o shader."""
         for i, prim in enumerate(self.primitives):
+            loc_id = glGetUniformLocation(self.program, f"u_primitives[{i}].id")
             loc_type = glGetUniformLocation(self.program, f"u_primitives[{i}].type")
             loc_position = glGetUniformLocation(
                 self.program, f"u_primitives[{i}].position"
             )
-            loc_scale = glGetUniformLocation(self.program, f"u_primitives[{i}].scale")
             loc_radius = glGetUniformLocation(self.program, f"u_primitives[{i}].radius")
 
+            # Atualizando os valores dos uniforms para cada primitiva
+            glUniform1i(loc_id, prim.id)
             glUniform1i(loc_type, prim.prim_type)
             glUniform3f(loc_position, *prim.position)
-            glUniform3f(loc_scale, *prim.scale)
             glUniform1f(loc_radius, prim.radius)
 
         glUniform1i(self.primitive_count_location, len(self.primitives))
+
+    def _draw_text(self, text, x, y):
+        font = pg.font.Font(None, 36)
+        surface = font.render(text, True, (255, 255, 255))
+        self.screen.blit(surface, (x, y))
 
     def render_loop(self) -> None:
         self.running = True
@@ -241,27 +250,26 @@ class WindowInteractive:
         glBindVertexArray(0)
 
         while self.running:
+            # Processa eventos e entradas do usuário
             self._process_events()
             self._process_keys()
 
-            # Calcula o tempo em segundos
-            current_time = pg.time.get_ticks() / 1000.0
-            glUniform1f(self.time_location, current_time)
-
-            # Atualiza a força de blending com thread-safe lock
-            with self.lock:
-                glUniform1f(self.blend_strength_location, self.blend_strength)
-
-            # Envia primitivas ao shader
+            # Renderiza a cena
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             self._send_primitives_to_shader()
 
-            # OpenGL stuff
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
-            # Bind the VAO and draw
+            # Desenho da cena
             glBindVertexArray(VAO)
             glDrawElements(GL_TRIANGLES, len(indices), GL_UNSIGNED_INT, None)
             glBindVertexArray(0)
+
+            # Captura o ID da primitiva atingida no centro da tela
+            center_x, center_y = self.width // 2, self.height // 2
+            pixel_data = glReadPixels(center_x, center_y, 1, 1, GL_BLUE, GL_FLOAT)
+            hit_id = int(pixel_data[0] * 255)
+
+            # Exibe o ID na tela
+            self._draw_text(f"Hit ID: {hit_id}", 10, 10)
 
             # Atualiza a tela
             pg.display.flip()
@@ -283,14 +291,13 @@ class WindowInteractive:
 
                     with self.lock:
                         self.blend_strength = new_blend_strength
-                if command == "add_primitive":
-                    prim_type, x, y, z, sx, sy, sz, radius = map(int, value.split(","))
-                    new_primitive = Primitive(
-                        prim_type, [x, y, z], [sx, sy, sz], radius
-                    )
+                elif command == "add_primitive":
+                    prim_type, x, y, z, radius = map(float, value.split(","))
+                    new_primitive = Primitive(int(prim_type), [x, y, z], radius)
+
                     self.add_primitive(new_primitive)
             except ValueError:
-                print(f"Invalid blend strength received: {message}")
+                print(f"Invalid command received: {message}")
 
     async def run_server(self):
         server = await websockets.serve(

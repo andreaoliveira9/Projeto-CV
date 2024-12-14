@@ -3,7 +3,7 @@ import websockets
 from dearpygui.dearpygui import *
 
 
-async def send_parameter_update(parameter, value):
+async def send_parameter(parameter, value):
     """Send parameter update message to the WebSocket server."""
     message = f"{parameter}:{value}"
     async with websockets.connect("ws://localhost:8765") as websocket:
@@ -13,7 +13,24 @@ async def send_parameter_update(parameter, value):
 def update_blend_strength(sender, app_data):
     """Callback to handle blend strength slider changes."""
     blend_strength = app_data
-    asyncio.run(send_parameter_update("change_blend_strength", blend_strength))
+    asyncio.run(send_parameter("change_blend_strength", blend_strength))
+
+
+def add_primitive(sender, app_data):
+    """Callback to handle primitive addition."""
+    primitive_type = get_value("Primitive Type")
+    position = (get_value("Pos X"), get_value("Pos Y"), get_value("Pos Z"))
+    radius = get_value("Radius")
+
+    # Map primitive type to integer (0 = Sphere, 1 = Rounded Cube)
+    type_map = {"Sphere": 0, "Rounded Cube": 1}
+    primitive_type_id = type_map[primitive_type]
+
+    # Format data for WebSocket
+    primitive_data = (
+        f"{primitive_type_id},{position[0]},{position[1]},{position[2]},{radius}"
+    )
+    asyncio.run(send_parameter("add_primitive", primitive_data))
 
 
 def create_ui():
@@ -46,14 +63,12 @@ def create_ui():
             add_theme_color(mvThemeCol_FrameBgHovered, [70, 70, 70, 255])
 
     # Create Window and capture its ID
-    with window(label="Shader Parameter Control", width=450, height=300) as window_id:
+    with window(label="Shader Parameter Control", width=450, height=550) as window_id:
         add_text("Control Panel for Shader Parameters", color=[200, 200, 200, 255])
         add_separator()
 
-        # Section Header
+        # Blend Strength Section
         add_text("Adjust Blend Strength", color=[100, 200, 255], bullet=True)
-
-        # Add Slider and bind its theme
         slider_id = add_slider_float(
             label="Blend Strength",
             min_value=0.0,
@@ -64,9 +79,26 @@ def create_ui():
         )
         bind_item_theme(slider_id, slider_theme)
 
-        # Footer
+        # Add Primitive Section
         add_separator()
-        add_text("Adjust the slider above to update the shader parameter in real-time.")
+        add_text("Add a Primitive", color=[100, 200, 255], bullet=True)
+
+        add_combo(
+            label="Primitive Type",
+            items=["Sphere", "Rounded Cube"],
+            default_value="Sphere",
+            width=200,
+            tag="Primitive Type",
+        )
+
+        add_text("Position")
+        add_input_float(label="Pos X", width=100, tag="Pos X")
+        add_input_float(label="Pos Y", width=100, tag="Pos Y")
+        add_input_float(label="Pos Z", width=100, tag="Pos Z")
+
+        add_input_float(label="Radius", default_value=0.0, width=100, tag="Radius")
+
+        add_button(label="Add Primitive", callback=add_primitive)
 
     # Bind theme to the window using the captured ID
     bind_item_theme(window_id, main_theme)
@@ -74,7 +106,7 @@ def create_ui():
     create_viewport(
         title="Shader Parameter Control",
         width=450,
-        height=300,
+        height=550,
         resizable=False,
     )
     setup_dearpygui()
