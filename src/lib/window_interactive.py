@@ -1,5 +1,4 @@
 import pygame as pg
-import pygame.mouse
 from pygame.locals import *
 import numpy as np
 import asyncio
@@ -12,7 +11,25 @@ WEBSOCKET_HOST = "localhost"
 WEBSOCKET_PORT = 8765
 
 
-class WindowInterative:
+class Primitive:
+    def __init__(self, prim_type: int, position: list, scale: list, radius: float):
+        """
+        prim_type: Tipo da primitiva (0 = esfera, 1 = cubo arredondado)
+        position: Posição da primitiva (x, y, z)
+        scale: Escala ou dimensões (para cubos arredondados)
+        radius: Raio (para esferas ou bordas arredondadas de cubos)
+        """
+        self.prim_type = prim_type
+        self.position = position
+        self.scale = scale
+        self.radius = radius
+
+    def to_array(self):
+        """Converte a primitiva para um array plano (compatível com uniformes OpenGL)."""
+        return [self.prim_type, *self.position, *self.scale, self.radius]
+
+
+class WindowInteractive:
 
     def __init__(
         self, width: int = 1280, height: int = 800, fps: int = 60, renderer: int = 0
@@ -39,6 +56,9 @@ class WindowInterative:
         self.blend_strength = 2.0
         self.lock = threading.Lock()  # Para sincronização segura
 
+        # Primitives
+        self.primitives = []  # Lista para armazenar primitivas
+
     def create_window(self) -> None:
         pg.init()
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
@@ -60,7 +80,9 @@ class WindowInterative:
     def _shader_init(self):
         # Locations
         vertex_shader_source = self._read_shader("glsl/vertex_shader.glsl")
-        fragment_shader_source = self._read_shader("glsl/fragment_shader.glsl")
+        fragment_shader_source = self._read_shader(
+            "glsl/window_interactive/fragment_shader.glsl"
+        )
 
         # Compile shaders
         vertex_shader = compileShader(vertex_shader_source, GL_VERTEX_SHADER)
@@ -94,6 +116,10 @@ class WindowInterative:
             self.program, "u_blend_strength"
         )
         glUniform1f(self.blend_strength_location, self.blend_strength)
+
+        self.primitive_count_location = glGetUniformLocation(
+            self.program, "u_primitive_count"
+        )
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
@@ -157,6 +183,30 @@ class WindowInterative:
                 # Atualiza no shader
                 glUniform2f(self.camera_rotation_location, *self.camera_rotation)
 
+    def add_primitive(self, primitive: Primitive):
+        """Adiciona uma primitiva à lista de primitivas."""
+        if len(self.primitives) < 32:  # Limite de primitivas no shader
+            self.primitives.append(primitive)
+        else:
+            print("Número máximo de primitivas atingido!")
+
+    def _send_primitives_to_shader(self):
+        """Envia todas as primitivas para o shader."""
+        for i, prim in enumerate(self.primitives):
+            loc_type = glGetUniformLocation(self.program, f"u_primitives[{i}].type")
+            loc_position = glGetUniformLocation(
+                self.program, f"u_primitives[{i}].position"
+            )
+            loc_scale = glGetUniformLocation(self.program, f"u_primitives[{i}].scale")
+            loc_radius = glGetUniformLocation(self.program, f"u_primitives[{i}].radius")
+
+            glUniform1i(loc_type, prim.prim_type)
+            glUniform3f(loc_position, *prim.position)
+            glUniform3f(loc_scale, *prim.scale)
+            glUniform1f(loc_radius, prim.radius)
+
+        glUniform1i(self.primitive_count_location, len(self.primitives))
+
     def render_loop(self) -> None:
         self.running = True
 
@@ -202,6 +252,9 @@ class WindowInterative:
             with self.lock:
                 glUniform1f(self.blend_strength_location, self.blend_strength)
 
+            # Envia primitivas ao shader
+            self._send_primitives_to_shader()
+
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -230,6 +283,12 @@ class WindowInterative:
 
                     with self.lock:
                         self.blend_strength = new_blend_strength
+                if command == "add_primitive":
+                    prim_type, x, y, z, sx, sy, sz, radius = map(int, value.split(","))
+                    new_primitive = Primitive(
+                        prim_type, [x, y, z], [sx, sy, sz], radius
+                    )
+                    self.add_primitive(new_primitive)
             except ValueError:
                 print(f"Invalid blend strength received: {message}")
 

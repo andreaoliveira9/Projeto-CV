@@ -1,12 +1,17 @@
 import pygame as pg
 from pygame.locals import *
 import numpy as np
+import asyncio
+import websockets
 import threading
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 
+WEBSOCKET_HOST = "localhost"
+WEBSOCKET_PORT = 8765
 
-class WindowMandelbulb:
+
+class WindowEffects:
 
     def __init__(
         self, width: int = 1280, height: int = 800, fps: int = 60, renderer: int = 0
@@ -32,18 +37,6 @@ class WindowMandelbulb:
         # Blending strength (thread-safe)
         self.blend_strength = 2.0
         self.lock = threading.Lock()  # Para sincronização segura
-        self.power_location = None
-        self.darkness_location = None
-
-        self.black_and_white_location = None
-        self.colour_a_mix_location = None
-        self.colour_b_mix_location = None
-        self.plusIteration_location = None
-        self.plusIteration = 0
-
-        self.fractalGrowSpeed = 0.2
-        self.fractalPower = 10
-        self.fractalGrow = 1
 
     def create_window(self) -> None:
         pg.init()
@@ -67,7 +60,7 @@ class WindowMandelbulb:
         # Locations
         vertex_shader_source = self._read_shader("glsl/vertex_shader.glsl")
         fragment_shader_source = self._read_shader(
-            "glsl/window_mandelbulb/fragment_shader.glsl"
+            "glsl/window_effects/fragment_shader.glsl"
         )
 
         # Compile shaders
@@ -97,37 +90,11 @@ class WindowMandelbulb:
             self.program, "u_camera_rotation"
         )
         glUniform2f(self.camera_rotation_location, *self.camera_rotation)
-
+        self.time_location = glGetUniformLocation(self.program, "u_time")
         self.blend_strength_location = glGetUniformLocation(
             self.program, "u_blend_strength"
         )
         glUniform1f(self.blend_strength_location, self.blend_strength)
-
-        self.blend_strength_location = glGetUniformLocation(
-            self.program, "u_blend_strength"
-        )
-        glUniform1f(self.blend_strength_location, self.blend_strength)
-
-        self.power_location = glGetUniformLocation(self.program, "power")
-        glUniform1f(self.power_location, self.fractalPower)
-
-        self.darkness_location = glGetUniformLocation(self.program, "darkness")
-        glUniform1f(self.darkness_location, 70)
-
-        self.black_and_white_location = glGetUniformLocation(
-            self.program, "blackAndWhite"
-        )
-        glUniform1f(self.black_and_white_location, 0.4)
-
-        self.colour_a_mix_location = glGetUniformLocation(self.program, "colourAMix")
-        glUniform3f(self.colour_a_mix_location, 0.3, 0.7, 1.0)
-
-        self.colour_b_mix_location = glGetUniformLocation(self.program, "colourBMix")
-        glUniform3f(self.colour_b_mix_location, 1.0, 0.5, 0.4)
-
-        self.plusIteration_location = glGetUniformLocation(
-            self.program, "plusIteration"
-        )
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
@@ -159,6 +126,7 @@ class WindowMandelbulb:
             self.camera_position -= up * speed
         if keys[pg.K_e]:  # Move para cima
             self.camera_position += up * speed
+
         # Atualiza a posição da câmera no shader
         glUniform3f(self.camera_position_location, *self.camera_position)
 
@@ -223,24 +191,17 @@ class WindowMandelbulb:
         # Unbind the VAO to avoid unintended modifications
         glBindVertexArray(0)
 
-        previous_time = pg.time.get_ticks() / 1000.0
-
         while self.running:
             self._process_events()
             self._process_keys()
 
             # Calcula o tempo em segundos
-            # Calculate the current time and delta time
             current_time = pg.time.get_ticks() / 1000.0
-            delta_time = current_time - previous_time
-            previous_time = current_time
-            self.fractalPower += self.fractalGrowSpeed * delta_time * self.fractalGrow
-            self.fractalPower = np.max([self.fractalPower, 1.01])
-            glUniform1f(self.power_location, self.fractalPower)
-            if self.fractalPower > 20:
-                self.fractalGrow = -1
-            elif self.fractalPower < 10:
-                self.fractalGrow = 1
+            glUniform1f(self.time_location, current_time)
+
+            # Atualiza a força de blending com thread-safe lock
+            with self.lock:
+                glUniform1f(self.blend_strength_location, self.blend_strength)
 
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -255,4 +216,27 @@ class WindowMandelbulb:
             self.clock.tick(self.max_fps)
 
     def run(self):
+        threading.Thread(target=self.start_websocket_server, daemon=True).start()
         self.render_loop()
+
+    def start_websocket_server(self):
+        asyncio.run(self.run_server())
+
+    async def websocket_handler(self, websocket):
+        async for message in websocket:
+            try:
+                command, value = message.split(":")
+                if command == "change_blend_strength":
+                    new_blend_strength = float(value)
+
+                    with self.lock:
+                        self.blend_strength = new_blend_strength
+            except ValueError:
+                print(f"Invalid blend strength received: {message}")
+
+    async def run_server(self):
+        server = await websockets.serve(
+            self.websocket_handler, WEBSOCKET_HOST, WEBSOCKET_PORT
+        )
+        print(f"WebSocket server started at ws://{WEBSOCKET_HOST}:{WEBSOCKET_PORT}")
+        await server.wait_closed()
