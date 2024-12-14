@@ -173,18 +173,27 @@ class WindowInteractive:
                 self.center_mouse = not self.center_mouse
                 pg.event.set_grab(self.center_mouse)
                 pg.mouse.set_visible(not self.center_mouse)
-            if self.center_mouse:
-                mouse_dx, mouse_dy = pg.mouse.get_rel()
-                self.camera_rotation[1] += mouse_dx * self.mouse_sensitivity
-                self.camera_rotation[0] += mouse_dy * self.mouse_sensitivity
 
-                # Limita o pitch para evitar inversão
-                self.camera_rotation[0] = np.clip(
-                    self.camera_rotation[0], -np.pi / 2, np.pi / 2
-                )
+    def _process_mouse_movement(self):
+        """Calcula e aplica o movimento do mouse para ajustar a rotação da câmera."""
+        if self.center_mouse:
+            # Obter o deslocamento do mouse
+            mouse_dx, mouse_dy = pg.mouse.get_rel()
+            self.camera_rotation[1] += mouse_dx * self.mouse_sensitivity
+            self.camera_rotation[0] += (
+                mouse_dy * self.mouse_sensitivity
+            )  # Inverte o eixo Y para ficar natural
 
-                # Atualiza no shader
-                glUniform2f(self.camera_rotation_location, *self.camera_rotation)
+            # Limitar o pitch para evitar inversão da câmera
+            self.camera_rotation[0] = np.clip(
+                self.camera_rotation[0], -np.pi / 2, np.pi / 2
+            )
+
+            # Atualizar o shader com os valores novos
+            glUniform2f(self.camera_rotation_location, *self.camera_rotation)
+
+            # Reposicionar o mouse no centro da tela
+            pg.mouse.set_pos(self.width // 2, self.height // 2)
 
     def _update_blend_strength(self):
         """Atualiza o valor de força de mistura no shader."""
@@ -246,6 +255,7 @@ class WindowInteractive:
             # Processa eventos e entradas do usuário
             self._process_events()
             self._process_keys()
+            self._process_mouse_movement()
 
             with self.lock:
                 glUniform1f(self.blend_strength_location, self.blend_strength)
