@@ -12,7 +12,7 @@ WEBSOCKET_HOST = "localhost"
 WEBSOCKET_PORT = 8765
 
 
-class Window:
+class WindowMandelbulb:
 
     def __init__(
         self, width: int = 1280, height: int = 800, fps: int = 60, renderer: int = 0
@@ -34,7 +34,6 @@ class Window:
         self.camera_rotation = [0.0, 0.0]  # [pitch, yaw]
         self.mouse_sensitivity = 0.005
         self.center_mouse = True
-
 
         # Blending strength (thread-safe)
         self.blend_strength = 2.0
@@ -247,7 +246,6 @@ class Window:
             elif self.fractalPower < 10:
                 self.fractalGrow = 1
 
-            print(self.fractalPower)
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
