@@ -11,7 +11,6 @@ uniform float u_blend_strength;
 #define MAX_PRIMITIVES 32
 
 struct Primitive {
-    int id;             // ID único
     int type;           // 0 = esfera, 1 = cubo arredondado
     vec3 position;      // Posição
     vec3 scale;         // Escala ou tamanho
@@ -44,9 +43,8 @@ float smoothUnionSDF(float d1, float d2, float k) {
     return mix(d2, d1, h) - k * h * (1.0 - h);
 }
 
-vec2 sceneSDF(vec3 p) {
+float sceneSDF(vec3 p) {
     float dist = MAX_DIST;
-    int hitID = -1;
 
     for (int i = 0; i < u_primitive_count; i++) {
         Primitive prim = u_primitives[i];
@@ -60,45 +58,32 @@ vec2 sceneSDF(vec3 p) {
             continue;
         }
 
-        if (i == 0) {
-            dist = d;  // Inicializa a distância
-            hitID = prim.id;
-        } else {
-            float prevDist = dist;
-            dist = smoothUnionSDF(dist, d, u_blend_strength);
-            
-            // Atualiza o ID apenas se a primitiva atual estiver mais próxima
-            if (d < prevDist) {
-                hitID = prim.id;
-            }
-        }
+        dist = smoothUnionSDF(dist, d, u_blend_strength);
     }
 
-    return vec2(dist, float(hitID));
+    return dist;
 }
 
 vec3 calculateNormal(vec3 p) {
     const vec2 e = vec2(0.001, 0.0);
     return normalize(vec3(
-        sceneSDF(p + e.xyy).x - sceneSDF(p - e.xyy).x,
-        sceneSDF(p + e.yxy).x - sceneSDF(p - e.yxy).x,
-        sceneSDF(p + e.yyx).x - sceneSDF(p - e.yyx).x
+        sceneSDF(p + e.xyy) - sceneSDF(p - e.xyy),
+        sceneSDF(p + e.yxy) - sceneSDF(p - e.yxy),
+        sceneSDF(p + e.yyx) - sceneSDF(p - e.yyx)
     ));
 }
 
-vec2 RayMarch(vec3 ro, vec3 rd) {
+float RayMarch(vec3 ro, vec3 rd) {
     float d0 = 0.0;
-    int hitID = -1;
 
     for (int i = 0; i < MAX_STEPS; i++) {
         vec3 p = ro + rd * d0;
-        vec2 scene = sceneSDF(p);
-        d0 += scene.x;
-        hitID = int(scene.y);
-        if (scene.x < MIN_DIST || d0 > MAX_DIST) break;
+        float dist = sceneSDF(p);
+        d0 += dist;
+        if (dist < MIN_DIST || d0 > MAX_DIST) break;
     }
 
-    return vec2(d0, float(hitID));
+    return d0;
 }
 
 mat3 rotationMatrix(float pitch, float yaw) {
@@ -121,9 +106,7 @@ void main() {
     mat3 rot = rotationMatrix(u_camera_rotation.x, u_camera_rotation.y);
     vec3 rd = normalize(rot * vec3(uv, 1.0));
 
-    vec2 rayResult = RayMarch(ro, rd);
-    float d = rayResult.x;
-    int hitID = int(rayResult.y);
+    float d = RayMarch(ro, rd);
     vec3 color = background_color;
 
     if (d < MAX_DIST) {
@@ -136,5 +119,5 @@ void main() {
         color = vec3(diff);
     }
 
-    fragColor = vec4(color, float(hitID) / 255.0);  // Corrigido: combina cor e ID no alfa
+    fragColor = vec4(color, 1.0);
 }

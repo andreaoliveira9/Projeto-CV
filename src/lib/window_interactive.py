@@ -12,8 +12,6 @@ WEBSOCKET_PORT = 8765
 
 
 class Primitive:
-    _id_counter = 0  # Contador global para gerar IDs únicos
-
     def __init__(self, prim_type: int, position: list, radius: float):
         """
         prim_type: Tipo da primitiva (0 = esfera, 1 = cubo arredondado)
@@ -21,15 +19,13 @@ class Primitive:
         scale: Escala ou dimensões (para cubos arredondados)
         radius: Raio (para esferas ou bordas arredondadas de cubos)
         """
-        self.id = Primitive._id_counter  # Atribui o próximo ID único
-        Primitive._id_counter += 1  # Incrementa o contador global
         self.prim_type = prim_type
         self.position = position
         self.radius = radius
 
     def to_array(self):
         """Converte a primitiva para um array plano (compatível com uniformes OpenGL)."""
-        return [self.id, self.prim_type, *self.position, *self.scale, self.radius]
+        return [self.prim_type, *self.position, *self.scale, self.radius]
 
 
 class WindowInteractive:
@@ -203,7 +199,6 @@ class WindowInteractive:
     def _send_primitives_to_shader(self):
         """Envia todas as primitivas para o shader."""
         for i, prim in enumerate(self.primitives):
-            loc_id = glGetUniformLocation(self.program, f"u_primitives[{i}].id")
             loc_type = glGetUniformLocation(self.program, f"u_primitives[{i}].type")
             loc_position = glGetUniformLocation(
                 self.program, f"u_primitives[{i}].position"
@@ -211,7 +206,6 @@ class WindowInteractive:
             loc_radius = glGetUniformLocation(self.program, f"u_primitives[{i}].radius")
 
             # Atualizando os valores dos uniforms para cada primitiva
-            glUniform1i(loc_id, prim.id)
             glUniform1i(loc_type, prim.prim_type)
             glUniform3f(loc_position, *prim.position)
             glUniform1f(loc_radius, prim.radius)
@@ -268,11 +262,6 @@ class WindowInteractive:
             glBindVertexArray(VAO)
             glDrawElements(GL_TRIANGLES, len(indices), GL_UNSIGNED_INT, None)
             glBindVertexArray(0)
-
-            # Captura o ID da primitiva atingida no centro da tela
-            center_x, center_y = self.width // 2, self.height // 2
-            pixel_data = glReadPixels(center_x, center_y, 1, 1, GL_BLUE, GL_FLOAT)
-            hit_id = int(pixel_data[0] * 255)
 
             # Atualiza a tela
             pg.display.flip()

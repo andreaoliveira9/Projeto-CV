@@ -4,8 +4,7 @@ def main():
     print("3 - Fractal Mandelbulb window")
     print("4 - fractal Menger Sponge window")
     print("0 - Exit")
-    # option = input("Choose an option: ")
-    option = "4"
+    option = input("Choose an option: ")
 
     while option not in ["0", "1", "2", "3", "4"]:
         print("Invalid option")
