@@ -6,72 +6,64 @@ uniform vec2 u_resolution;        // Tamanho da janela
 uniform vec3 u_camera_position;   // Posição da câmera
 uniform vec2 u_camera_rotation;   // Rotação da câmera (pitch e yaw)
 uniform float u_time;             // Tempo em segundos
-uniform float u_blend_strength;   // Força do smooth blending (novo uniforme)
+uniform float u_blend_strength;   // Força do smooth blending
 
 #define M_PI 3.14159265358979
 #define MAX_STEPS 100
-#define MAX_DIST 100.
-#define MIN_DIST .01
+#define MAX_DIST 100.0
+#define MIN_DIST 0.01
 
 out vec4 fragColor;  // Cor final do fragmento
 
 // Constantes
-const vec3 background_color = vec3(0.5);  // Fundo cinza
-// Função SDF para uma esfera
+const vec3 background_color = vec3(0.5); 
+const vec3 global_light_dir = normalize(vec3(0.0, 10.0, 0.0));
+const float epsilon = 0.001;
+
+// Estrutura e funções SDF
 float sphereSDF(vec3 p, vec3 center, float radius) {
     return length(p - center) - radius;
 }
 
-// Função SDF para um cubo arredondado
 float roundedBoxSDF(vec3 p, vec3 b, float r) {
     vec3 q = abs(p) - b;
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
 
-// Blend Suave
-vec4 Blend( float a, float b, vec3 colA, vec3 colB, float k )
-{
-    float h = clamp( 0.5+0.5*(b - a)/k, 0.0, 1.0 );
-    float blendDst = mix( b, a, h ) - k*h*(1.0-h);
-    vec3 blendCol = mix(colB,colA,h);
+// Função de blend suave de distâncias e cores
+vec4 Blend(float a, float b, vec3 colA, vec3 colB, float k) {
+    float h = clamp(0.5+0.5*(b - a)/k, 0.0, 1.0);
+    float blendDst = mix(b, a, h) - k*h*(1.0-h);
+    vec3 blendCol = mix(colB, colA, h);
     return vec4(blendCol, blendDst);
 }
 
-// Retorna cor e distância combinadas da cena
+// Cena: retorna cor e distância
 vec4 sceneDistColor(vec3 p) {
-    // Definindo as primitivas e suas cores
-    // Esfera móvel (vermelha)
+    // Primitivas:
     float sphere1 = sphereSDF(p, vec3(sin(u_time)*2.0, 1.0, 6.0), 1.0);
-    vec3  colSphere1 = vec3(1.0, 0.0, 0.0);
+    vec3 colSphere1 = vec3(1.0, 0.0, 0.0);
 
-    // Esfera fixa (azul)
     float sphere2 = sphereSDF(p, vec3(-2.0, 1.0, 4.0), 1.0);
     vec3 colSphere2 = vec3(0.0, 0.0, 1.0);
 
-    // Cubo arredondado (verde)
-    float cube = roundedBoxSDF(p - vec3(2.0,1.0,6.0), vec3(1.0), 0.2);
+    float cube = roundedBoxSDF(p - vec3(2.0, 1.0, 6.0), vec3(1.0), 0.2);
     vec3 colCube = vec3(0.0, 1.0, 0.0);
 
-    // Combina esfera1 e cubo (união suave)
+    // Primeiro blend entre esfera1 e cubo
     vec4 blend1 = Blend(sphere1, cube, colSphere1, colCube, u_blend_strength);
-    // blend1.xyz = cor combinada, blend1.w = distancia combinada
 
-    // Combina com esfera2 (amarelo quando mesclado)
-    // Vamos supor que a segunda fusão seja esfera2 com o resultado anterior,
-    // resultando em algo entre azul e a cor resultante do primeiro blend.
+    // Segundo blend com esfera2
     vec4 finalBlend = Blend(sphere2, blend1.w, colSphere2, blend1.xyz, u_blend_strength);
-
-    // finalBlend.xyz = cor final combinada
-    // finalBlend.w = distância final combinada
-    return finalBlend;
+    return finalBlend; // finalBlend.xyz = cor, finalBlend.w = distancia
 }
 
-// Função original sceneSDF retorna apenas a distância, para uso em cálculo de normais etc.
+// Apenas distância para cálculo de normal e raymarch
 float sceneSDF(vec3 p) {
     return sceneDistColor(p).w;
 }
 
-// Calcula a normal da superfície no ponto p
+// Cálculo da normal no ponto p
 vec3 calculateNormal(vec3 p) {
     const vec2 e = vec2(0.001, 0.0);
     return normalize(vec3(
@@ -81,6 +73,7 @@ vec3 calculateNormal(vec3 p) {
     ));
 }
 
+// Raymarch simples
 float RayMarch(vec3 ro, vec3 rd) {
     float d0 = 0.0;
     for (int i = 0; i < MAX_STEPS; i++) {
@@ -92,7 +85,12 @@ float RayMarch(vec3 ro, vec3 rd) {
     return d0;
 }
 
-// Cria a matriz de rotação a partir do pitch e yaw
+// Estrutura de raio
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
 mat3 rotationMatrix(float pitch, float yaw) {
     float cp = cos(pitch);
     float sp = sin(pitch);
@@ -106,33 +104,63 @@ mat3 rotationMatrix(float pitch, float yaw) {
     );
 }
 
-void main() {
-    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
+// Cria o raio da câmera
+Ray CreateCameraRay(vec2 uv) {
     vec3 ro = u_camera_position;
-
-    // Direção da câmera
     mat3 rot = rotationMatrix(u_camera_rotation.x, u_camera_rotation.y);
     vec3 rd = normalize(rot * vec3(uv, 1.0));
+    Ray r;
+    r.origin = ro;
+    r.direction = rd;
+    return r;
+}
 
-    // Ray marching
-    float d = RayMarch(ro, rd);
+// Cálculo de sombras simplificado
+float CalculateShadow(Ray ray, float dstToShadePoint) {
+    float rayDst = 0.0;
+    float shadowIntensity = 0.7;
+    float brightness = 300.0;
+
+    for (int i = 0; i < MAX_STEPS && rayDst < dstToShadePoint; i++){
+        vec3 p = ray.origin + ray.direction * rayDst;
+        float dist = sceneSDF(p);
+        if (dist < epsilon) {
+            return shadowIntensity;
+        }
+        brightness = min(brightness, dist * 200.0);
+        rayDst += dist;
+    }
+    return shadowIntensity + (1.0 - shadowIntensity) * brightness;
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
+    Ray ray = CreateCameraRay(uv);
+
+    // Realiza o raymarch
+    float d = RayMarch(ray.origin, ray.direction);
     vec3 color = background_color;
 
     if (d < MAX_DIST) {
-        vec3 p = ro + rd * d;  // Ponto de interseção
-        vec3 normal = calculateNormal(p);  // Normal da superfície
+        vec3 p = ray.origin + ray.direction * d;
+        vec3 normal = calculateNormal(p);
 
-        // Obter a cor naquele ponto (chamar sceneDistColor novamente)
+        // Obtém cor da superfície
         vec4 sceneInfo = sceneDistColor(p);
-        color = sceneInfo.xyz; // cor resultante da combinação das primitivas
+        color = sceneInfo.xyz;
 
-        // Luz simples
-        vec3 light_position = ro + rot * vec3(2.0, 4.0, 2.0);  
-        vec3 light_dir = normalize(light_position - p);
-        float diff = max(dot(normal, light_dir), 0.0);
+        // Iluminação simples
+        vec3 offset = p + normal * epsilon;
+        vec3 dirToLight = normalize(global_light_dir - offset);
+        Ray shadowRay;
+        shadowRay.origin = offset;
+        shadowRay.direction = dirToLight;
 
-        // Aplica iluminação sobre a cor da superfície
-        color *= diff;
+        float dstToLight = distance(offset, global_light_dir);
+        float shadow = CalculateShadow(shadowRay, dstToLight);
+
+        float diff = max(dot(normal, normalize(global_light_dir)), 0.0);
+        color *= shadow * diff;
     }
 
     fragColor = vec4(color, 1.0);
