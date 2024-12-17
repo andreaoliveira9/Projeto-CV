@@ -6,7 +6,6 @@ uniform vec2 u_resolution;        // Tamanho da janela
 uniform vec3 u_camera_position;   // Posição da câmera
 uniform vec2 u_camera_rotation;   // Rotação da câmera (pitch e yaw)
 uniform float u_time;             // Tempo em segundos
-uniform float u_blend_strength;   // Força do smooth blending
 
 #define M_PI 3.14159265358979
 #define MAX_STEPS 100
@@ -17,7 +16,7 @@ out vec4 fragColor;  // Cor final do fragmento
 
 // Constantes
 const vec3 background_color = vec3(0.5); 
-const vec3 global_light_dir = normalize(vec3(0.0, 10.0, 0.0));
+const vec3 global_light_dir = normalize(vec3(10.0, 10.0, 0.0));
 const float epsilon = 0.001;
 
 // Estrutura e funções SDF
@@ -30,15 +29,7 @@ float roundedBoxSDF(vec3 p, vec3 b, float r) {
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
 
-// Função de blend suave de distâncias e cores
-vec4 Blend(float a, float b, vec3 colA, vec3 colB, float k) {
-    float h = clamp(0.5+0.5*(b - a)/k, 0.0, 1.0);
-    float blendDst = mix(b, a, h) - k*h*(1.0-h);
-    vec3 blendCol = mix(colB, colA, h);
-    return vec4(blendCol, blendDst);
-}
-
-// Cena: retorna cor e distância
+// Cena: retorna cor e distância para mask
 vec4 sceneDistColor(vec3 p) {
     // Primitivas:
     float sphere1 = sphereSDF(p, vec3(sin(u_time)*2.0, 1.0, 6.0), 1.0);
@@ -50,12 +41,21 @@ vec4 sceneDistColor(vec3 p) {
     float cube = roundedBoxSDF(p - vec3(2.0, 1.0, 6.0), vec3(1.0), 0.2);
     vec3 colCube = vec3(0.0, 1.0, 0.0);
 
-    // Primeiro blend entre esfera1 e cubo
-    vec4 blend1 = Blend(sphere1, cube, colSphere1, colCube, u_blend_strength);
+    // Determinação por proximidade (masking)
+    float minDist = sphere1;
+    vec3 finalColor = colSphere1;
 
-    // Segundo blend com esfera2
-    vec4 finalBlend = Blend(sphere2, blend1.w, colSphere2, blend1.xyz, u_blend_strength);
-    return finalBlend; // finalBlend.xyz = cor, finalBlend.w = distancia
+    if (sphere2 < minDist) {
+        minDist = sphere2;
+        finalColor = colSphere2;
+    }
+
+    if (cube < minDist) {
+        minDist = cube;
+        finalColor = colCube;
+    }
+
+    return vec4(finalColor, minDist);
 }
 
 // Apenas distância para cálculo de normal e raymarch

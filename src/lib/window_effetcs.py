@@ -60,7 +60,7 @@ class WindowEffects:
         # Locations
         vertex_shader_source = self._read_shader("glsl/vertex_shader.glsl")
         fragment_shader_source = self._read_shader(
-            "glsl/window_blend/fragment_shader.glsl"
+            "glsl/window_effects/fragment_shader.glsl"
         )
 
         # Compile shaders
