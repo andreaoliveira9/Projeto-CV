@@ -11,7 +11,7 @@ WEBSOCKET_HOST = "localhost"
 WEBSOCKET_PORT = 8765
 
 
-class WindowBlend:
+class WindowEffects:
 
     def __init__(
         self, width: int = 1280, height: int = 800, fps: int = 60, renderer: int = 0
