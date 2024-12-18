@@ -296,12 +296,10 @@ class WindowEffects:
                     with self.lock:
                         self.global_light_dir = new_global_light_dir
                 elif command == "update_move_cube":
-                    print([float(number[1:]) for number in value.split(",")])
                     new_move_cube_coord = [
                         float(number[1:]) for number in value.split(",")
                     ]
 
-                    print([number[:1] for number in value.split(",")])
                     new_move_cube_func = [
                         int(number[:1]) for number in value.split(",")
                     ]
