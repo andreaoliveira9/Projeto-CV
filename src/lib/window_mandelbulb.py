@@ -112,18 +112,18 @@ class WindowMandelbulb:
         glUniform1f(self.power_location, self.fractalPower)
 
         self.darkness_location = glGetUniformLocation(self.program, "darkness")
-        glUniform1f(self.darkness_location, 70)
+        glUniform1f(self.darkness_location, 40)
 
         self.black_and_white_location = glGetUniformLocation(
             self.program, "blackAndWhite"
         )
-        glUniform1f(self.black_and_white_location, 0.4)
+        glUniform1f(self.black_and_white_location, 0.1)
 
         self.colour_a_mix_location = glGetUniformLocation(self.program, "colourAMix")
-        glUniform3f(self.colour_a_mix_location, 0.3, 0.7, 1.0)
+        glUniform3f(self.colour_a_mix_location, 1.0, 0.0, 0.0)
 
         self.colour_b_mix_location = glGetUniformLocation(self.program, "colourBMix")
-        glUniform3f(self.colour_b_mix_location, 1.0, 0.5, 0.4)
+        glUniform3f(self.colour_b_mix_location, 0.94, 0.0, 1.0)
 
         self.plusIteration_location = glGetUniformLocation(
             self.program, "plusIteration"

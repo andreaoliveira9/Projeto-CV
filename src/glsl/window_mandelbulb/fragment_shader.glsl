@@ -94,7 +94,7 @@ out vec4 fragColor;
 void main() {
     vec2 uv = gl_FragCoord.xy / u_resolution;
 
-    vec4 result = mix(vec4(51.0 / 255.0, 3.0 / 255.0, 20.0 / 255.0, 1.0), vec4(16.0 / 255.0, 6.0 / 255.0, 28.0 / 255.0, 1.0), uv.y);
+    vec4 result = mix(vec4(65.0 / 255.0, 3.0 / 255.0, 79.0 / 255.0, 1.0), vec4(16.0 / 255.0, 6.0 / 255.0, 28.0 / 255.0, 1.0), uv.y);
 
     Ray ray = CreateCameraRay(uv * 2.0 - 1.0);
 
@@ -114,7 +114,6 @@ void main() {
             float colourB = clamp(escapeIteration / 16.0, 0.0, 1.0);
 
             vec3 colour = clamp(colourA * colourAMix + colourB * colourBMix, 0.0, 1.0);
-
             result = vec4(colour, 1.0);
             break;
         }
