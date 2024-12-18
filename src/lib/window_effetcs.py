@@ -41,7 +41,8 @@ class WindowEffects:
         self.shadowIntensity = 0.2
         self.lock = threading.Lock()  # Para sincronização segura
 
-        self.move_cube = [0.0, 0.0, 0.0]
+        self.move_cube_coord = [0.0, 0.0, 0.0]
+        self.move_cube_func = [0, 0, 0]
 
     def create_window(self) -> None:
         pg.init()
@@ -110,8 +111,14 @@ class WindowEffects:
             self.program, "u_global_light_dir"
         )
         glUniform3f(self.global_light_dir_location, *self.global_light_dir)
-        self.move_cube_location = glGetUniformLocation(self.program, "u_move_cube")
-        glUniform3f(self.move_cube_location, *self.move_cube)
+        self.move_cube_coord_location = glGetUniformLocation(
+            self.program, "u_move_cube_coord"
+        )
+        glUniform3f(self.move_cube_coord_location, *self.move_cube_coord)
+        self.move_cube_func_location = glGetUniformLocation(
+            self.program, "u_move_cube_func"
+        )
+        glUniform3i(self.move_cube_func_location, *self.move_cube_func)
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
@@ -240,7 +247,8 @@ class WindowEffects:
                 glUniform3f(self.global_light_dir_location, *self.global_light_dir)
 
             with self.lock:
-                glUniform3f(self.move_cube_location, *self.move_cube)
+                glUniform3f(self.move_cube_coord_location, *self.move_cube_coord)
+                glUniform3i(self.move_cube_func_location, *self.move_cube_func)
 
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -288,10 +296,19 @@ class WindowEffects:
                     with self.lock:
                         self.global_light_dir = new_global_light_dir
                 elif command == "update_move_cube":
-                    new_move_cube = [float(number) for number in value[1:-1].split(",")]
+                    print([float(number[1:]) for number in value.split(",")])
+                    new_move_cube_coord = [
+                        float(number[1:]) for number in value.split(",")
+                    ]
+
+                    print([number[:1] for number in value.split(",")])
+                    new_move_cube_func = [
+                        int(number[:1]) for number in value.split(",")
+                    ]
 
                     with self.lock:
-                        self.move_cube = new_move_cube
+                        self.move_cube_coord = new_move_cube_coord
+                        self.move_cube_func = new_move_cube_func
             except ValueError:
                 print(f"Invalid update received: {message}")
 

@@ -33,7 +33,16 @@ def update_global_light_dir(sender, app_data):
 
 def update_move_cube(sender, app_data):
     move_cube = (get_value("move_X"), get_value("move_Y"), get_value("move_Z"))
-    asyncio.run(send_parameter("update_move_cube", move_cube))
+
+    type_map = {"Sin": 0, "Cos": 1}
+    func_type = (
+        type_map[get_value("Function_X")],
+        type_map[get_value("Function_Y")],
+        type_map[get_value("Function_Z")],
+    )
+
+    move_data = f"{func_type[0]}{move_cube[0]},{func_type[1]}{move_cube[1]},{func_type[2]}{move_cube[2]}"
+    asyncio.run(send_parameter("update_move_cube", move_data))
 
 
 def add_primitive(sender, app_data):
@@ -186,6 +195,30 @@ def create_ui():
             tag="move_Z",
         )
         bind_item_theme(slider_id, slider_theme)
+        add_combo(
+            label="Function X",
+            items=["Sin", "Cos"],
+            default_value="Sin",
+            callback=update_move_cube,
+            width=200,
+            tag="Function_X",
+        )
+        add_combo(
+            label="Function Y",
+            items=["Sin", "Cos"],
+            default_value="Sin",
+            callback=update_move_cube,
+            width=200,
+            tag="Function_Y",
+        )
+        add_combo(
+            label="Function Z",
+            items=["Sin", "Cos"],
+            default_value="Sin",
+            callback=update_move_cube,
+            width=200,
+            tag="Function_Z",
+        )
 
         # Add Primitive Section
         add_separator()

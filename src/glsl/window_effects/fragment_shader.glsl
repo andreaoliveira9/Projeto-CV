@@ -10,7 +10,8 @@ uniform float u_blend_strength;   // Força do smooth blending
 uniform float u_shadow_intensity; // Intensidade da sombra
 uniform float u_brightness;       // Brilho da cena
 uniform vec3 u_global_light_dir;  // Direção da luz global
-uniform vec3 u_move_cube;
+uniform vec3 u_move_cube_coord;
+uniform ivec3 u_move_cube_func;
 
 #define M_PI 3.14159265358979
 #define MAX_STEPS 100
@@ -59,7 +60,19 @@ vec4 sceneDistColor(vec3 p) {
     float cube2 = roundedBoxSDF(p - vec3(-2.0, -3.0, 6.0), vec3(1.0), 0.2);
     vec3 colCube2 = vec3(1.0, 1.0, 0.0);
 
-    float cube3 = roundedBoxSDF(p - vec3(sin(u_time) * u_move_cube[0], sin(u_time) * u_move_cube[1], sin(u_time) * u_move_cube[2] - 6), vec3(1.0), 0.2);
+    float func_x = u_move_cube_func[0] == 1 ? cos(u_time) : sin(u_time);
+    float func_y = u_move_cube_func[1] == 1 ? cos(u_time) : sin(u_time);
+    float func_z = u_move_cube_func[2] == 1 ? cos(u_time) : sin(u_time);
+
+    float cube3 = roundedBoxSDF(
+        p - vec3(
+            func_x * u_move_cube_coord[0],  // Multiplicador de escala para X
+            func_y * u_move_cube_coord[1],  // Multiplicador de escala para Y
+            func_z * u_move_cube_coord[2] - 6.0  // Multiplicador de escala para Z
+        ),
+        vec3(1.0),  // Tamanho do cubo
+        0.2         // Arredondamento
+    );
     vec3 colCube3 = vec3(1.0, 0.5, 0.5);
 
     // Primeiro blend entre esfera1 e cubo1
