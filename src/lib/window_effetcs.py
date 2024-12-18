@@ -36,6 +36,8 @@ class WindowEffects:
 
         # Blending strength (thread-safe)
         self.blend_strength = 2.0
+        self.brightness = 1.0
+        self.shadowIntensity = 0.2
         self.lock = threading.Lock()  # Para sincronização segura
 
     def create_window(self) -> None:
@@ -95,6 +97,12 @@ class WindowEffects:
             self.program, "u_blend_strength"
         )
         glUniform1f(self.blend_strength_location, self.blend_strength)
+        self.brightness_location = glGetUniformLocation(self.program, "u_brightness")
+        glUniform1f(self.brightness_location, self.brightness)
+        self.shadowIntensity_location = glGetUniformLocation(
+            self.program, "u_shadow_intensity"
+        )
+        glUniform1f(self.shadowIntensity_location, self.shadowIntensity)
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
@@ -213,6 +221,12 @@ class WindowEffects:
             with self.lock:
                 glUniform1f(self.blend_strength_location, self.blend_strength)
 
+            with self.lock:
+                glUniform1f(self.brightness_location, self.brightness)
+
+            with self.lock:
+                glUniform1f(self.shadowIntensity_location, self.shadowIntensity)
+
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -241,6 +255,16 @@ class WindowEffects:
 
                     with self.lock:
                         self.blend_strength = new_blend_strength
+                elif command == "change_brightness":
+                    new_brightness = float(value)
+
+                    with self.lock:
+                        self.brightness = new_brightness
+                elif command == "change_shadowIntensity":
+                    new_shadowIntensity = float(value)
+
+                    with self.lock:
+                        self.shadowIntensity = new_shadowIntensity
             except ValueError:
                 print(f"Invalid blend strength received: {message}")
 

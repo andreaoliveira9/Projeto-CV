@@ -16,6 +16,16 @@ def update_blend_strength(sender, app_data):
     asyncio.run(send_parameter("change_blend_strength", blend_strength))
 
 
+def update_brightness(sender, app_data):
+    brightness = app_data
+    asyncio.run(send_parameter("change_brightness", brightness))
+
+
+def update_shadowIntensity(sender, app_data):
+    shadowIntensity = app_data
+    asyncio.run(send_parameter("change_shadowIntensity", shadowIntensity))
+
+
 def add_primitive(sender, app_data):
     """Callback to handle primitive addition."""
     primitive_type = get_value("Primitive Type")
@@ -75,6 +85,28 @@ def create_ui():
             max_value=3.0,
             default_value=2.0,
             callback=update_blend_strength,
+            width=300,
+        )
+        bind_item_theme(slider_id, slider_theme)
+
+        add_text("Adjust Brightness", color=[100, 200, 255], bullet=True)
+        slider_id = add_slider_float(
+            label="Brightness",
+            min_value=0.0,
+            max_value=10.0,
+            default_value=1.0,
+            callback=update_brightness,
+            width=300,
+        )
+        bind_item_theme(slider_id, slider_theme)
+
+        add_text("Adjust Shadow Intensity", color=[100, 200, 255], bullet=True)
+        slider_id = add_slider_float(
+            label="Shadow Intendity",
+            min_value=0.0,
+            max_value=1.0,
+            default_value=0.2,
+            callback=update_shadowIntensity,
             width=300,
         )
         bind_item_theme(slider_id, slider_theme)

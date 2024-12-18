@@ -7,6 +7,8 @@ uniform vec3 u_camera_position;   // Posição da câmera
 uniform vec2 u_camera_rotation;   // Rotação da câmera (pitch e yaw)
 uniform float u_time;             // Tempo em segundos
 uniform float u_blend_strength;   // Força do smooth blending
+uniform float u_shadow_intensity; // Intensidade da sombra
+uniform float u_brightness;       // Brilho da cena
 
 #define M_PI 3.14159265358979
 #define MAX_STEPS 100
@@ -17,7 +19,7 @@ out vec4 fragColor;  // Cor final do fragmento
 
 // Constantes
 const vec3 background_color = vec3(0.5); 
-const vec3 global_light_dir = normalize(vec3(0.0, 0.0, -10.0));
+const vec3 global_light_dir = normalize(vec3(0.0, 10.0, 0.0));
 const float epsilon = 0.001;
 
 // Estrutura e funções SDF
@@ -32,8 +34,8 @@ float roundedBoxSDF(vec3 p, vec3 b, float r) {
 
 // Função de blend suave de distâncias e cores
 vec4 Blend(float a, float b, vec3 colA, vec3 colB, float k) {
-    float h = clamp(0.5+0.5*(b - a)/k, 0.0, 1.0);
-    float blendDst = mix(b, a, h) - k*h*(1.0-h);
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    float blendDst = mix(b, a, h) - k * h * (1.0 - h);
     vec3 blendCol = mix(colB, colA, h);
     return vec4(blendCol, blendDst);
 }
@@ -41,20 +43,33 @@ vec4 Blend(float a, float b, vec3 colA, vec3 colB, float k) {
 // Cena: retorna cor e distância
 vec4 sceneDistColor(vec3 p) {
     // Primitivas:
-    float sphere1 = sphereSDF(p, vec3(sin(u_time)*2.0, 1.0, 6.0), 1.0);
+    float sphere1 = sphereSDF(p, vec3(sin(u_time) * 2.0, 1.0, 6.0), 1.0);
     vec3 colSphere1 = vec3(1.0, 0.0, 0.0);
 
-    float sphere2 = sphereSDF(p, vec3(-2.0, 1.0, 4.0), 1.0);
+    float sphere2 = sphereSDF(p, vec3(-2.0, 1.0, 8.0), 1.0);
     vec3 colSphere2 = vec3(0.0, 0.0, 1.0);
 
-    float cube = roundedBoxSDF(p - vec3(2.0, 1.0, 6.0), vec3(1.0), 0.2);
-    vec3 colCube = vec3(0.0, 1.0, 0.0);
+    float sphere3 = sphereSDF(p, vec3(cos(u_time) * 2.0, 6.0, 6.0), 1.0);
+    vec3 colSphere3 = vec3(0.0, 1.0, 0.5);
 
-    // Primeiro blend entre esfera1 e cubo
-    vec4 blend1 = Blend(sphere1, cube, colSphere1, colCube, u_blend_strength);
+    float cube1 = roundedBoxSDF(p - vec3(2.0, 1.0, 6.0), vec3(1.0), 0.2);
+    vec3 colCube1 = vec3(0.0, 1.0, 0.0);
+
+    float cube2 = roundedBoxSDF(p - vec3(-2.0, -3.0, 6.0), vec3(1.0), 0.2);
+    vec3 colCube2 = vec3(1.0, 1.0, 0.0);
+
+    // Primeiro blend entre esfera1 e cubo1
+    vec4 blend1 = Blend(sphere1, cube1, colSphere1, colCube1, u_blend_strength);
 
     // Segundo blend com esfera2
-    vec4 finalBlend = Blend(sphere2, blend1.w, colSphere2, blend1.xyz, u_blend_strength);
+    vec4 blend2 = Blend(sphere2, blend1.w, colSphere2, blend1.xyz, u_blend_strength);
+
+    // Terceiro blend com cube2
+    vec4 blend3 = Blend(cube2, blend2.w, colCube2, blend2.xyz, u_blend_strength);
+
+    // Quarto blend com esfera3
+    vec4 finalBlend = Blend(sphere3, blend3.w, colSphere3, blend3.xyz, u_blend_strength);
+
     return finalBlend; // finalBlend.xyz = cor, finalBlend.w = distancia
 }
 
@@ -116,21 +131,32 @@ Ray CreateCameraRay(vec2 uv) {
 }
 
 // Cálculo de sombras simplificado
-float CalculateShadow(Ray ray, float dstToShadePoint) {
+float CalculateShadow(vec3 p, vec3 lightDir) {
     float rayDst = 0.0;
-    float shadowIntensity = 0.7;
-    float brightness = 300.0;
+    float shadowFactor = 1.0; // Começa sem sombra
 
-    for (int i = 0; i < MAX_STEPS && rayDst < dstToShadePoint; i++){
-        vec3 p = ray.origin + ray.direction * rayDst;
-        float dist = sceneSDF(p);
+    // Raymarch do ponto até a luz
+    for (int i = 0; i < MAX_STEPS; i++) {
+        vec3 samplePoint = p + lightDir * rayDst;
+        float dist = sceneSDF(samplePoint);
+
+        // Se encontramos um objeto entre o ponto e a luz
         if (dist < epsilon) {
-            return shadowIntensity;
+            return 1 - u_shadow_intensity; // Sombra total
         }
-        brightness = min(brightness, dist * 200.0);
+
+        // Atenuação baseada na distância até o objeto
+        shadowFactor = min(shadowFactor, 10.0 * dist / rayDst);
+
         rayDst += dist;
+
+        // Se o raio ultrapassar a luz, paramos
+        if (rayDst >= MAX_DIST) {
+            break;
+        }
     }
-    return shadowIntensity + (1.0 - shadowIntensity) * brightness;
+
+    return mix(1 - u_shadow_intensity, 1.0, shadowFactor); // Sombra parcial
 }
 
 void main() {
@@ -150,18 +176,19 @@ void main() {
         color = sceneInfo.xyz;
 
         // Iluminação simples
-        vec3 offset = p + normal * epsilon;
-        vec3 dirToLight = normalize(global_light_dir - offset);
-        Ray shadowRay;
-        shadowRay.origin = offset;
-        shadowRay.direction = dirToLight;
+        vec3 offset = p + normal * epsilon; // Evita auto-interseção
+        vec3 dirToLight = normalize(global_light_dir);
 
-        float dstToLight = distance(offset, global_light_dir);
-        float shadow = CalculateShadow(shadowRay, dstToLight);
+        // Calcular sombra
+        float shadow = CalculateShadow(offset, dirToLight);
 
-        float diff = max(dot(normal, normalize(global_light_dir)), 0.0);
+        // Iluminação difusa
+        float diff = max(dot(normal, dirToLight), 0.0);
         color *= shadow * diff;
     }
+
+    // Ajuste de brilho
+    color *= u_brightness;
 
     fragColor = vec4(color, 1.0);
 }
