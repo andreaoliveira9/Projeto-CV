@@ -6,7 +6,7 @@ from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 
 
-class WindowMengerSponge:
+class WindowJuliaSet3D:
 
     def __init__(
         self, width: int = 1280, height: int = 800, fps: int = 60, renderer: int = 0
@@ -24,8 +24,8 @@ class WindowMengerSponge:
         self.resolution_location = None
 
         # Camera stuff
-        self.camera_position = [0.0, 1.0, 0.0]  # Posição inicial da câmera
-        self.camera_rotation = [0.0, 0.0]  # [pitch, yaw]
+        self.camera_position = [2.0, 0.0, 0.0]  # Posição inicial da câmera
+        self.camera_rotation = [0.0, -1.5]  # [pitch, yaw]
         self.mouse_sensitivity = 0.005
         self.center_mouse = True
 
@@ -67,7 +67,7 @@ class WindowMengerSponge:
         # Locations
         vertex_shader_source = self._read_shader("glsl/vertex_shader.glsl")
         fragment_shader_source = self._read_shader(
-            "glsl/window_mengersponge/fragment_shader.glsl"
+            "glsl/window_juliaset3d/fragment_shader.glsl"
         )
 
         # Compile shaders
@@ -124,10 +124,6 @@ class WindowMengerSponge:
 
         self.colour_b_mix_location = glGetUniformLocation(self.program, "colourBMix")
         glUniform3f(self.colour_b_mix_location, 1.0, 0.5, 0.4)
-
-        self.plusIteration_location = glGetUniformLocation(
-            self.program, "plusIteration"
-        )
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:

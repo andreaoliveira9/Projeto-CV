@@ -6,6 +6,7 @@ uniform vec2 u_resolution;        // Tamanho da janela
 uniform vec3 u_camera_position;   // Posição da câmera
 uniform vec2 u_camera_rotation;   // Rotação da câmera (pitch e yaw)
 
+uniform float power;
 uniform float darkness;
 uniform float blackAndWhite;
 uniform vec3 colourAMix;
@@ -48,26 +49,43 @@ Ray CreateCameraRay(vec2 uv) {
     return CreateRay(origin, direction);
 }
 
-float MengerSpongeSDF(vec3 p) {
-    float scale = 3.0;
-    vec3 q = abs(p);
+vec2 SceneInfo(vec3 position) {
+    const int maxIterations = 50;  // Número máximo de iterações
+    const float bailout = 9.0;     // Raio de escape
+    vec3 constant = vec3(0.355, 0.355, 0.355); // Constante do conjunto de Julia
 
-    for (int i = 0; i < 5; i++) {
-        if (q.x < q.z) q.xz = q.zx;
-        if (q.y < q.z) q.yz = q.zy;
-        q = abs(q);
-        q = scale * q - vec3(scale - 1.0);
+    vec3 z = position; // Ponto inicial
+    float dr = 1.0;
+    float r = 0.0;
+    int iterations = 0;
 
-        if (q.x > q.z) q.xz = q.zx;
-        if (q.y > q.z) q.yz = q.zy;
+    for (int i = 0; i < maxIterations; i++) {
+        iterations = i;
+        r = length(z);
+
+        if (r > bailout) {
+            break;
+        }
+
+        // Convert to polar coordinates
+        float theta = acos(z.z / r);
+        float phi = atan(z.y, z.x);
+        dr = pow(r, power - 1.0) * power * dr + 1.0;
+
+        // Scale and rotate the point
+        float zr = pow(r, power);
+        theta = theta * power;
+        phi = phi * power;
+
+        // Convert back to Cartesian coordinates
+        z = zr * vec3(sin(theta) * cos(phi), sin(phi) * sin(theta), cos(theta));
+
+        // Add constant for Julia Set
+        z += constant;
     }
 
-    return length(q) / pow(scale, 5.0);
-}
-
-vec2 SceneInfo(vec3 position) {
-    float sdf = MengerSpongeSDF(position);
-    return vec2(0.0, sdf); // Aqui, o primeiro elemento poderia ser usado para iteração/coloração.
+    float dst = 0.5 * log(r) * r / dr;
+    return vec2(iterations, dst);
 }
 
 vec3 EstimateNormal(vec3 p) {
@@ -82,7 +100,7 @@ out vec4 fragColor;
 void main() {
     vec2 uv = gl_FragCoord.xy / u_resolution;
 
-    vec4 result = mix(vec4(0.1, 0.1, 0.3, 1.0), vec4(0.3, 0.1, 0.1, 1.0), uv.y);
+    vec4 result = mix(vec4(51.0 / 255.0, 3.0 / 255.0, 20.0 / 255.0, 1.0), vec4(16.0 / 255.0, 6.0 / 255.0, 28.0 / 255.0, 1.0), uv.y);
 
     Ray ray = CreateCameraRay(uv * 2.0 - 1.0);
 
@@ -95,10 +113,13 @@ void main() {
         float dst = sceneInfo.y;
 
         if (dst < epsilon) {
-            vec3 normal = EstimateNormal(ray.origin);
-            float lighting = clamp(dot(normal, normalize(vec3(-1.0, 1.0, -1.0))), 0.0, 1.0);
+            float escapeIteration = sceneInfo.x;
+            vec3 normal = EstimateNormal(ray.origin - ray.direction * epsilon * 2.0);
 
-            vec3 colour = mix(colourAMix, colourBMix, lighting);
+            float colourA = clamp(dot(normal * 0.5 + 0.5, -vec3(1.0, 1.0, 1.0)), 0.0, 1.0);
+            float colourB = clamp(escapeIteration / 16.0, 0.0, 1.0);
+
+            vec3 colour = clamp(colourA * colourAMix + colourB * colourBMix, 0.0, 1.0);
 
             result = vec4(colour, 1.0);
             break;

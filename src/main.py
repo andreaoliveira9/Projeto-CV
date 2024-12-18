@@ -2,7 +2,7 @@ def main():
     print("1 - Effects window")
     print("2 - Interactive window")
     print("3 - Fractal Mandelbulb window")
-    print("4 - fractal Menger Sponge window")
+    print("4 - Fractal Julia Set 3D")
     print("0 - Exit")
     option = input("Choose an option: ")
 
@@ -17,7 +17,7 @@ def main():
     elif option == "3":
         from lib import WindowMandelbulb as Window
     elif option == "4":
-        from lib import WindowMengerSponge as Window
+        from lib import WindowJuliaSet3D as Window
     elif option == "0":
         return
 
