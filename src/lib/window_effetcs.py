@@ -41,6 +41,8 @@ class WindowEffects:
         self.shadowIntensity = 0.2
         self.lock = threading.Lock()  # Para sincronização segura
 
+        self.move_cube = [0.0, 0.0, 0.0]
+
     def create_window(self) -> None:
         pg.init()
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
@@ -108,6 +110,8 @@ class WindowEffects:
             self.program, "u_global_light_dir"
         )
         glUniform3f(self.global_light_dir_location, *self.global_light_dir)
+        self.move_cube_location = glGetUniformLocation(self.program, "u_move_cube")
+        glUniform3f(self.move_cube_location, *self.move_cube)
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
@@ -235,6 +239,9 @@ class WindowEffects:
             with self.lock:
                 glUniform3f(self.global_light_dir_location, *self.global_light_dir)
 
+            with self.lock:
+                glUniform3f(self.move_cube_location, *self.move_cube)
+
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -277,10 +284,14 @@ class WindowEffects:
                     new_global_light_dir = [
                         float(number) for number in value[1:-1].split(",")
                     ]
-                    print(new_global_light_dir)
 
                     with self.lock:
                         self.global_light_dir = new_global_light_dir
+                elif command == "update_move_cube":
+                    new_move_cube = [float(number) for number in value[1:-1].split(",")]
+
+                    with self.lock:
+                        self.move_cube = new_move_cube
             except ValueError:
                 print(f"Invalid update received: {message}")
 

@@ -31,6 +31,11 @@ def update_global_light_dir(sender, app_data):
     asyncio.run(send_parameter("update_global_light_dir", global_light_dir))
 
 
+def update_move_cube(sender, app_data):
+    move_cube = (get_value("move_X"), get_value("move_Y"), get_value("move_Z"))
+    asyncio.run(send_parameter("update_move_cube", move_cube))
+
+
 def add_primitive(sender, app_data):
     """Callback to handle primitive addition."""
     primitive_type = get_value("Primitive Type")
@@ -147,6 +152,38 @@ def create_ui():
             callback=update_global_light_dir,
             width=300,
             tag="Z",
+        )
+        bind_item_theme(slider_id, slider_theme)
+
+        add_text("Adjust Cube Movement", color=[100, 200, 255], bullet=True)
+        slider_id = add_slider_float(
+            label="X",
+            min_value=-0.0,
+            max_value=5.0,
+            default_value=0.0,
+            callback=update_move_cube,
+            width=300,
+            tag="move_X",
+        )
+        bind_item_theme(slider_id, slider_theme)
+        slider_id = add_slider_float(
+            label="Y",
+            min_value=-0.0,
+            max_value=5.0,
+            default_value=0.0,
+            callback=update_move_cube,
+            width=300,
+            tag="move_Y",
+        )
+        bind_item_theme(slider_id, slider_theme)
+        slider_id = add_slider_float(
+            label="Z",
+            min_value=-0.0,
+            max_value=5.0,
+            default_value=0.0,
+            callback=update_move_cube,
+            width=300,
+            tag="move_Z",
         )
         bind_item_theme(slider_id, slider_theme)
 

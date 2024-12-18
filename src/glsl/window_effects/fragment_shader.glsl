@@ -10,6 +10,7 @@ uniform float u_blend_strength;   // Força do smooth blending
 uniform float u_shadow_intensity; // Intensidade da sombra
 uniform float u_brightness;       // Brilho da cena
 uniform vec3 u_global_light_dir;  // Direção da luz global
+uniform vec3 u_move_cube;
 
 #define M_PI 3.14159265358979
 #define MAX_STEPS 100
@@ -58,6 +59,9 @@ vec4 sceneDistColor(vec3 p) {
     float cube2 = roundedBoxSDF(p - vec3(-2.0, -3.0, 6.0), vec3(1.0), 0.2);
     vec3 colCube2 = vec3(1.0, 1.0, 0.0);
 
+    float cube3 = roundedBoxSDF(p - vec3(sin(u_time) * u_move_cube[0], sin(u_time) * u_move_cube[1], sin(u_time) * u_move_cube[2] - 6), vec3(1.0), 0.2);
+    vec3 colCube3 = vec3(1.0, 0.5, 0.5);
+
     // Primeiro blend entre esfera1 e cubo1
     vec4 blend1 = Blend(sphere1, cube1, colSphere1, colCube1, u_blend_strength);
 
@@ -68,7 +72,10 @@ vec4 sceneDistColor(vec3 p) {
     vec4 blend3 = Blend(cube2, blend2.w, colCube2, blend2.xyz, u_blend_strength);
 
     // Quarto blend com esfera3
-    vec4 finalBlend = Blend(sphere3, blend3.w, colSphere3, blend3.xyz, u_blend_strength);
+    vec4 blend4 = Blend(sphere3, blend3.w, colSphere3, blend3.xyz, u_blend_strength);
+
+    // Quinto blend com cube3
+    vec4 finalBlend = Blend(cube3, blend4.w, colCube3, blend4.xyz, u_blend_strength);
 
     return finalBlend; // finalBlend.xyz = cor, finalBlend.w = distancia
 }
