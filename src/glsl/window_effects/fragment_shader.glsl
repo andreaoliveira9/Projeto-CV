@@ -9,6 +9,7 @@ uniform float u_time;             // Tempo em segundos
 uniform float u_blend_strength;   // Força do smooth blending
 uniform float u_shadow_intensity; // Intensidade da sombra
 uniform float u_brightness;       // Brilho da cena
+uniform vec3 u_global_light_dir;  // Direção da luz global
 
 #define M_PI 3.14159265358979
 #define MAX_STEPS 100
@@ -19,7 +20,6 @@ out vec4 fragColor;  // Cor final do fragmento
 
 // Constantes
 const vec3 background_color = vec3(0.5); 
-const vec3 global_light_dir = normalize(vec3(0.0, 10.0, 0.0));
 const float epsilon = 0.001;
 
 // Estrutura e funções SDF
@@ -119,7 +119,6 @@ mat3 rotationMatrix(float pitch, float yaw) {
     );
 }
 
-// Cria o raio da câmera
 Ray CreateCameraRay(vec2 uv) {
     vec3 ro = u_camera_position;
     mat3 rot = rotationMatrix(u_camera_rotation.x, u_camera_rotation.y);
@@ -135,35 +134,30 @@ float CalculateShadow(vec3 p, vec3 lightDir) {
     float rayDst = 0.0;
     float shadowFactor = 1.0; // Começa sem sombra
 
-    // Raymarch do ponto até a luz
     for (int i = 0; i < MAX_STEPS; i++) {
         vec3 samplePoint = p + lightDir * rayDst;
         float dist = sceneSDF(samplePoint);
 
-        // Se encontramos um objeto entre o ponto e a luz
         if (dist < epsilon) {
-            return 1 - u_shadow_intensity; // Sombra total
+            return 1.0 - u_shadow_intensity;
         }
 
-        // Atenuação baseada na distância até o objeto
         shadowFactor = min(shadowFactor, 10.0 * dist / rayDst);
 
         rayDst += dist;
 
-        // Se o raio ultrapassar a luz, paramos
         if (rayDst >= MAX_DIST) {
             break;
         }
     }
 
-    return mix(1 - u_shadow_intensity, 1.0, shadowFactor); // Sombra parcial
+    return mix(1.0 - u_shadow_intensity, 1.0, shadowFactor);
 }
 
 void main() {
     vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
     Ray ray = CreateCameraRay(uv);
 
-    // Realiza o raymarch
     float d = RayMarch(ray.origin, ray.direction);
     vec3 color = background_color;
 
@@ -171,23 +165,18 @@ void main() {
         vec3 p = ray.origin + ray.direction * d;
         vec3 normal = calculateNormal(p);
 
-        // Obtém cor da superfície
         vec4 sceneInfo = sceneDistColor(p);
         color = sceneInfo.xyz;
 
-        // Iluminação simples
-        vec3 offset = p + normal * epsilon; // Evita auto-interseção
-        vec3 dirToLight = normalize(global_light_dir);
+        vec3 offset = p + normal * epsilon;
+        vec3 dirToLight = normalize(u_global_light_dir);
 
-        // Calcular sombra
         float shadow = CalculateShadow(offset, dirToLight);
-
-        // Iluminação difusa
         float diff = max(dot(normal, dirToLight), 0.0);
+
         color *= shadow * diff;
     }
 
-    // Ajuste de brilho
     color *= u_brightness;
 
     fragColor = vec4(color, 1.0);

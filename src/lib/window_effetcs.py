@@ -33,6 +33,7 @@ class WindowEffects:
         self.camera_rotation = [0.0, 0.0]  # [pitch, yaw]
         self.mouse_sensitivity = 0.005
         self.center_mouse = True
+        self.global_light_dir = [0.0, 1.0, 0.0]
 
         # Blending strength (thread-safe)
         self.blend_strength = 2.0
@@ -103,6 +104,10 @@ class WindowEffects:
             self.program, "u_shadow_intensity"
         )
         glUniform1f(self.shadowIntensity_location, self.shadowIntensity)
+        self.global_light_dir_location = glGetUniformLocation(
+            self.program, "u_global_light_dir"
+        )
+        glUniform3f(self.global_light_dir_location, *self.global_light_dir)
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
@@ -227,6 +232,9 @@ class WindowEffects:
             with self.lock:
                 glUniform1f(self.shadowIntensity_location, self.shadowIntensity)
 
+            with self.lock:
+                glUniform3f(self.global_light_dir_location, *self.global_light_dir)
+
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -265,8 +273,16 @@ class WindowEffects:
 
                     with self.lock:
                         self.shadowIntensity = new_shadowIntensity
+                elif command == "update_global_light_dir":
+                    new_global_light_dir = [
+                        float(number) for number in value[1:-1].split(",")
+                    ]
+                    print(new_global_light_dir)
+
+                    with self.lock:
+                        self.global_light_dir = new_global_light_dir
             except ValueError:
-                print(f"Invalid blend strength received: {message}")
+                print(f"Invalid update received: {message}")
 
     async def run_server(self):
         server = await websockets.serve(

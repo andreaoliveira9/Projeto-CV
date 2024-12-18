@@ -26,6 +26,11 @@ def update_shadowIntensity(sender, app_data):
     asyncio.run(send_parameter("change_shadowIntensity", shadowIntensity))
 
 
+def update_global_light_dir(sender, app_data):
+    global_light_dir = (get_value("X"), get_value("Y"), get_value("Z"))
+    asyncio.run(send_parameter("update_global_light_dir", global_light_dir))
+
+
 def add_primitive(sender, app_data):
     """Callback to handle primitive addition."""
     primitive_type = get_value("Primitive Type")
@@ -111,6 +116,40 @@ def create_ui():
         )
         bind_item_theme(slider_id, slider_theme)
 
+        add_text(
+            "Adjust Global Illumination Direction", color=[100, 200, 255], bullet=True
+        )
+        slider_id = add_slider_float(
+            label="X",
+            min_value=-1.0,
+            max_value=1.0,
+            default_value=0.0,
+            callback=update_global_light_dir,
+            width=300,
+            tag="X",
+        )
+        bind_item_theme(slider_id, slider_theme)
+        slider_id = add_slider_float(
+            label="Y",
+            min_value=-1.0,
+            max_value=1.0,
+            default_value=1.0,
+            callback=update_global_light_dir,
+            width=300,
+            tag="Y",
+        )
+        bind_item_theme(slider_id, slider_theme)
+        slider_id = add_slider_float(
+            label="Z",
+            min_value=-1.0,
+            max_value=1.0,
+            default_value=0.0,
+            callback=update_global_light_dir,
+            width=300,
+            tag="Z",
+        )
+        bind_item_theme(slider_id, slider_theme)
+
         # Add Primitive Section
         add_separator()
         add_text("Add a Primitive", color=[100, 200, 255], bullet=True)
@@ -123,7 +162,7 @@ def create_ui():
             tag="Primitive Type",
         )
 
-        add_text("Position")
+        add_text("Position", color=[100, 200, 255], bullet=True)
         add_input_float(label="Pos X", width=100, tag="Pos X")
         add_input_float(label="Pos Y", width=100, tag="Pos Y")
         add_input_float(label="Pos Z", width=100, tag="Pos Z")
