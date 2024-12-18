@@ -12,6 +12,8 @@ uniform float u_brightness;       // Brilho da cena
 uniform vec3 u_global_light_dir;  // Direção da luz global
 uniform vec3 u_move_cube_coord;
 uniform ivec3 u_move_cube_func;
+uniform int u_reflection_steps;        // Número máximo de reflexos (default: 2)
+uniform float u_reflection_intensity; // Intensidade dos reflexos (default: 0.5)
 
 #define M_PI 3.14159265358979
 #define MAX_STEPS 100
@@ -174,6 +176,54 @@ float CalculateShadow(vec3 p, vec3 lightDir) {
     return mix(1.0 - u_shadow_intensity, 1.0, shadowFactor);
 }
 
+// Função para calcular a cor do reflexo
+vec3 calculateReflection(vec3 origin, vec3 direction, int maxSteps) {
+    vec3 reflectedColor = vec3(0.0); // Acumula a cor refletida
+    float reflectivity = 1.0;       // Intensidade inicial do reflexo
+
+    for (int i = 0; i < maxSteps; i++) {
+        float d = RayMarch(origin, direction);
+
+        if (d >= MAX_DIST) {
+            // Se o raio não intersecta nada, retorna a cor de fundo
+            reflectedColor += background_color * reflectivity;
+            break;
+        }
+
+        // Calcula o ponto de interseção
+        vec3 hitPoint = origin + direction * d;
+        vec3 normal = calculateNormal(hitPoint);
+
+        // Obtemos a cor da superfície no ponto de interseção
+        vec4 sceneInfo = sceneDistColor(hitPoint);
+        vec3 surfaceColor = sceneInfo.xyz;
+
+        // Iluminação local no ponto refletido
+        vec3 dirToLight = normalize(u_global_light_dir);
+        vec3 offset = hitPoint + normal * epsilon; // Evita auto-interseção
+        float shadow = CalculateShadow(offset, dirToLight);
+        float diff = max(dot(normal, dirToLight), 0.0);
+
+        // Cor local da superfície com luz
+        vec3 localColor = surfaceColor * shadow * diff * u_brightness;
+
+        // Acumula a cor do reflexo
+        reflectedColor += localColor * reflectivity;
+
+        // Atualiza direção e origem do raio refletido
+        direction = reflect(direction, normal);
+        origin = hitPoint + direction * epsilon;
+
+        // Reduz a intensidade do reflexo para reflexos subsequentes
+        reflectivity *= u_reflection_intensity;
+
+        // Interrompe se o reflexo for muito fraco
+        if (reflectivity < 0.01) break;
+    }
+
+    return reflectedColor;
+}
+
 void main() {
     vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
     Ray ray = CreateCameraRay(uv);
@@ -182,22 +232,26 @@ void main() {
     vec3 color = background_color;
 
     if (d < MAX_DIST) {
-        vec3 p = ray.origin + ray.direction * d;
-        vec3 normal = calculateNormal(p);
+        vec3 hitPoint = ray.origin + ray.direction * d;
+        vec3 normal = calculateNormal(hitPoint);
 
-        vec4 sceneInfo = sceneDistColor(p);
-        color = sceneInfo.xyz;
+        // Cor local da superfície
+        vec4 sceneInfo = sceneDistColor(hitPoint);
+        vec3 surfaceColor = sceneInfo.xyz;
 
-        vec3 offset = p + normal * epsilon;
+        // Iluminação local
         vec3 dirToLight = normalize(u_global_light_dir);
-
+        vec3 offset = hitPoint + normal * epsilon;
         float shadow = CalculateShadow(offset, dirToLight);
         float diff = max(dot(normal, dirToLight), 0.0);
+        vec3 localColor = surfaceColor * shadow * diff * u_brightness;
 
-        color *= shadow * diff;
+        // Calcula a cor do reflexo
+        vec3 reflectionColor = calculateReflection(hitPoint, reflect(ray.direction, normal), u_reflection_steps);
+
+        // Combina a cor local com os reflexos
+        color = mix(localColor, reflectionColor, u_reflection_intensity);
     }
-
-    color *= u_brightness;
 
     fragColor = vec4(color, 1.0);
 }

@@ -45,6 +45,11 @@ def update_move_cube(sender, app_data):
     asyncio.run(send_parameter("update_move_cube", move_data))
 
 
+def update_reflection(sender, app_data):
+    reflection = (get_value("Reflection_Steps"), get_value("Reflection_Intensity"))
+    asyncio.run(send_parameter("update_reflection", reflection))
+
+
 def add_primitive(sender, app_data):
     """Callback to handle primitive addition."""
     primitive_type = get_value("Primitive Type")
@@ -163,6 +168,24 @@ def create_ui():
             tag="Z",
         )
         bind_item_theme(slider_id, slider_theme)
+
+        add_text("Adjust Reflection", color=[100, 200, 255], bullet=True)
+        add_input_int(
+            label="Relection Steps",
+            width=100,
+            default_value=2,
+            callback=update_reflection,
+            tag="Reflection_Steps",
+        )
+        slider_id = add_slider_float(
+            label="Reflection Intensity",
+            min_value=-0.0,
+            max_value=1.0,
+            default_value=0.5,
+            callback=update_reflection,
+            width=300,
+            tag="Reflection_Intensity",
+        )
 
         add_text("Adjust Cube Movement", color=[100, 200, 255], bullet=True)
         slider_id = add_slider_float(

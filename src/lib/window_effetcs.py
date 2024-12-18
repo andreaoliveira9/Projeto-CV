@@ -44,6 +44,9 @@ class WindowEffects:
         self.move_cube_coord = [0.0, 0.0, 0.0]
         self.move_cube_func = [0, 0, 0]
 
+        self.reflection_steps = 2
+        self.reflection_intensity = 0.5
+
     def create_window(self) -> None:
         pg.init()
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
@@ -119,6 +122,14 @@ class WindowEffects:
             self.program, "u_move_cube_func"
         )
         glUniform3i(self.move_cube_func_location, *self.move_cube_func)
+        self.reflection_steps_location = glGetUniformLocation(
+            self.program, "u_reflection_steps"
+        )
+        glUniform1i(self.reflection_steps_location, self.reflection_steps)
+        self.reflection_intensity_location = glGetUniformLocation(
+            self.program, "u_reflection_intensity"
+        )
+        glUniform1f(self.reflection_intensity_location, self.reflection_intensity)
 
     def _read_shader(self, path: str) -> str:
         with open(path, "r") as file:
@@ -250,6 +261,12 @@ class WindowEffects:
                 glUniform3f(self.move_cube_coord_location, *self.move_cube_coord)
                 glUniform3i(self.move_cube_func_location, *self.move_cube_func)
 
+            with self.lock:
+                glUniform1i(self.reflection_steps_location, self.reflection_steps)
+                glUniform1f(
+                    self.reflection_intensity_location, self.reflection_intensity
+                )
+
             # OpenGL stuff
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -307,6 +324,15 @@ class WindowEffects:
                     with self.lock:
                         self.move_cube_coord = new_move_cube_coord
                         self.move_cube_func = new_move_cube_func
+                elif command == "update_reflection":
+                    print(value)
+                    new_reflection_steps, new_reflection_intensity = [
+                        number for number in value[1:-1].split(",")
+                    ]
+
+                    with self.lock:
+                        self.reflection_steps = int(new_reflection_steps)
+                        self.reflection_intensity = float(new_reflection_intensity)
             except ValueError:
                 print(f"Invalid update received: {message}")
 
