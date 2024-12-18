@@ -29,11 +29,11 @@ class WindowEffects:
         self.resolution_location = None
 
         # Camera stuff
-        self.camera_position = [0.0, 1.0, 0.0]  # Posição inicial da câmera
-        self.camera_rotation = [0.0, 0.0]  # [pitch, yaw]
+        self.camera_position = [-15.0, 6.0, 3.0]  # Posição inicial da câmera
+        self.camera_rotation = [0.3, 1.55]  # [pitch, yaw]
         self.mouse_sensitivity = 0.005
         self.center_mouse = True
-        self.global_light_dir = [0.0, 1.0, 0.0]
+        self.global_light_dir = [-1.0, 1.0, 0.0]
 
         # Blending strength (thread-safe)
         self.blend_strength = 2.0
@@ -325,7 +325,6 @@ class WindowEffects:
                         self.move_cube_coord = new_move_cube_coord
                         self.move_cube_func = new_move_cube_func
                 elif command == "update_reflection":
-                    print(value)
                     new_reflection_steps, new_reflection_intensity = [
                         number for number in value[1:-1].split(",")
                     ]

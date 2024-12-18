@@ -53,7 +53,7 @@ vec4 sceneDistColor(vec3 p) {
     float sphere2 = sphereSDF(p, vec3(-2.0, 1.0, 8.0), 1.0);
     vec3 colSphere2 = vec3(0.0, 0.0, 1.0);
 
-    float sphere3 = sphereSDF(p, vec3(cos(u_time) * 2.0, 6.0, 6.0), 1.0);
+    float sphere3 = sphereSDF(p, vec3(cos(u_time) * 10.0, 6.0, 6.0), 1.0);
     vec3 colSphere3 = vec3(0.0, 1.0, 0.5);
 
     float cube1 = roundedBoxSDF(p - vec3(2.0, 1.0, 6.0), vec3(1.0), 0.2);
@@ -70,7 +70,7 @@ vec4 sceneDistColor(vec3 p) {
         p - vec3(
             func_x * u_move_cube_coord[0],  // Multiplicador de escala para X
             func_y * u_move_cube_coord[1],  // Multiplicador de escala para Y
-            func_z * u_move_cube_coord[2] - 6.0  // Multiplicador de escala para Z
+            func_z * u_move_cube_coord[2] - 2.0  // Multiplicador de escala para Z
         ),
         vec3(1.0),  // Tamanho do cubo
         0.2         // Arredondamento

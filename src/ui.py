@@ -142,7 +142,7 @@ def create_ui():
             label="X",
             min_value=-1.0,
             max_value=1.0,
-            default_value=0.0,
+            default_value=-1.0,
             callback=update_global_light_dir,
             width=300,
             tag="X",
